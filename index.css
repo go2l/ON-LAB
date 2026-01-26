@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#f3f4f6] text-slate-800 antialiased overflow-x-hidden selection:bg-blue-600/20 font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer components {
+  .card-clean {
+    @apply bg-white border border-slate-200 shadow-sm rounded-2xl p-6 transition-all;
+  }
+
+  .nav-blur {
+    @apply bg-white/90 backdrop-blur-md border-b border-slate-200;
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm active:scale-[0.98] flex items-center justify-center;
+  }
+
+  .btn-secondary {
+    @apply bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm active:scale-[0.98] flex items-center justify-center;
+  }
+
+  .input-clean {
+    @apply w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-400;
+  }
+
+  .step-active {
+    @apply border-blue-600 text-blue-600 font-bold;
+  }
+
+  .step-completed {
+    @apply border-green-500 text-green-600;
+  }
+
+  .step-inactive {
+    @apply border-gray-300 text-gray-400;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

@@ -1,0 +1,8 @@
+{
+  "name": "BioShield-IL",
+  "description": "National Fungicide Resistance Tracker & Decision Support System",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
