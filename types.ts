@@ -114,6 +114,9 @@ export interface SensitivityTest {
   material: string;
   dosage: string;
   category: ResistanceCategory;
+  date: string; // ISO string
+  user: string;
+  notes?: string;
 }
 
 export interface TestResult {

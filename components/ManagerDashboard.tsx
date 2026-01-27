@@ -1,18 +1,55 @@
-import React, { useState } from 'react';
-import { Sample, ResistanceCategory } from '../types';
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import { Sample, ResistanceCategory, SensitivityTest } from '../types';
 import { RESISTANCE_COLORS } from '../constants';
 import { X, MapPin, Search, Database, AlertCircle, Info, ChevronLeft } from 'lucide-react';
 
+// Fix moved inside component to avoid SSR/Initial load issues
+
 interface ManagerDashboardProps {
   samples: Sample[];
-  results: Record<string, ResistanceCategory>;
+  results: Record<string, SensitivityTest[]>;
 }
 
-const MAP_BOUNDS = {
-  north: 33.5,
-  south: 29.3,
-  west: 33.7,
-  east: 36.3
+// Function to create custom colored icons
+const createCustomIcon = (color: string, isSelected: boolean) => {
+  return L.divIcon({
+    className: 'custom-icon',
+    html: `
+      <div style="
+        background-color: ${color};
+        width: ${isSelected ? '24px' : '16px'};
+        height: ${isSelected ? '24px' : '16px'};
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        ${isSelected ? 'transform: scale(1.1); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);' : ''}
+      "></div>
+    `,
+    iconSize: isSelected ? [24, 24] : [16, 16],
+    iconAnchor: isSelected ? [12, 12] : [8, 8],
+    popupAnchor: [0, -10]
+  });
+};
+
+// Helper to determine the "worst" resistance categorization from a list of tests
+const getWorstResistance = (tests: SensitivityTest[] | undefined): ResistanceCategory | undefined => {
+  if (!tests || tests.length === 0) return undefined;
+
+  const priority = [
+    ResistanceCategory.R,
+    ResistanceCategory.T,
+    ResistanceCategory.RS,
+    ResistanceCategory.S,
+    ResistanceCategory.HS
+  ];
+
+  for (const cat of priority) {
+    if (tests.some(t => t.category === cat)) return cat;
+  }
+  return tests[0].category; // Default fallback
 };
 
 export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, results }) => {
@@ -24,8 +61,26 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
     s.region.includes(searchTerm)
   );
 
-  const totalResistant = Object.values(results).filter(r => r === ResistanceCategory.R).length;
+  const totalResistant = Object.values(results).filter(tests =>
+    getWorstResistance(tests) === ResistanceCategory.R
+  ).length;
+
   const resistanceRate = samples.length > 0 ? ((totalResistant / samples.length) * 100).toFixed(1) : "0";
+
+  useEffect(() => {
+    // Fix for default Leaflet markers
+    try {
+      // @ts-ignore
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      });
+    } catch (e) {
+      console.error("Leaflet Icon Fix Error:", e);
+    }
+  }, []);
 
   return (
     <div className="space-y-8 animate-fade-in" dir="rtl">
@@ -66,8 +121,8 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Map Container */}
-        <div className="lg:col-span-8 bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-sm h-[700px] relative">
-          <div className="absolute top-6 right-6 z-10 w-72">
+        <div className="lg:col-span-8 bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-sm h-[50vh] md:h-[700px] relative z-0 flex flex-col">
+          <div className="p-4 md:absolute md:top-6 md:right-6 md:z-[1000] w-full md:w-72 bg-white md:bg-transparent border-b md:border-none border-slate-100">
             <div className="relative">
               <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
               <input
@@ -75,47 +130,49 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                 placeholder="חיפוש לפי מזהה או אזור..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl py-2.5 pr-10 pl-4 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                className="w-full bg-slate-50 md:bg-white/90 md:backdrop-blur-sm border border-slate-200 rounded-xl py-2.5 pr-10 pl-4 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all font-sans"
               />
             </div>
           </div>
 
-          <div className="relative w-full h-full bg-[#f8fbfe] flex justify-center items-center">
-            <img
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Israel_location_map.svg/852px-Israel_location_map.svg.png"
-              alt="Israel Map"
-              className="h-[120%] w-auto opacity-40 brightness-[1.05] contrast-[0.95]"
+          <MapContainer
+            key={`${samples.length}-${searchTerm}`} // Force re-mount when data changes or on strict mode reload
+            center={[31.4, 35.0]}
+            zoom={8}
+            scrollWheelZoom={true}
+            className="w-full h-full z-0"
+            style={{ borderRadius: '32px' }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
             />
-
             {filteredSamples.map((sample) => {
-              const latPct = (MAP_BOUNDS.north - sample.coordinates.lat) / (MAP_BOUNDS.north - MAP_BOUNDS.south) * 100;
-              const lngPct = (sample.coordinates.lng - MAP_BOUNDS.west) / (MAP_BOUNDS.east - MAP_BOUNDS.west) * 100;
-              const resistance = results[sample.id];
-              const color = resistance ? RESISTANCE_COLORS[resistance] : '#94a3b8';
+              const sampleTests = results[sample.id];
+              const worstResistance = getWorstResistance(sampleTests);
+              const color = worstResistance ? RESISTANCE_COLORS[worstResistance] : '#94a3b8';
+              const isSelected = selectedSample?.id === sample.id;
 
               return (
-                <div
+                <Marker
                   key={sample.id}
-                  onClick={() => setSelectedSample(sample)}
-                  className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-20 group"
-                  style={{ top: `${latPct}%`, left: `${lngPct}%` }}
+                  position={[sample.coordinates.lat, sample.coordinates.lng]}
+                  icon={createCustomIcon(color, isSelected)}
+                  eventHandlers={{
+                    click: () => setSelectedSample(sample),
+                  }}
                 >
-                  <div
-                    className={`rounded-full border-2 border-white transition-all shadow-md ${selectedSample?.id === sample.id ? 'w-7 h-7 ring-4 ring-blue-600/20 scale-110 translate-y-[-2px]' : 'w-4 h-4 group-hover:scale-125'}`}
-                    style={{ backgroundColor: color }}
-                  />
-                  {!selectedSample && (
-                    <div className="absolute top-full right-1/2 transform translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white px-3 py-1.5 rounded-lg shadow-xl text-[10px] whitespace-nowrap font-bold z-30">
-                      {sample.internalId}
-                    </div>
-                  )}
-                </div>
+                  <Popup className="font-sans">
+                    <div className="font-bold text-slate-800">{sample.internalId}</div>
+                    <div className="text-xs text-slate-500">{sample.region}</div>
+                  </Popup>
+                </Marker>
               );
             })}
-          </div>
+          </MapContainer>
 
           {selectedSample && (
-            <div className="absolute bottom-6 right-6 left-6 md:left-auto md:w-96 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl animate-fade-in z-30 overflow-hidden">
+            <div className="absolute bottom-6 right-6 left-6 md:left-auto md:w-96 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl animate-fade-in z-[1000] overflow-hidden">
               <div className="absolute top-0 right-0 left-0 h-1.5" style={{ backgroundColor: results[selectedSample.id] ? RESISTANCE_COLORS[results[selectedSample.id]] : '#cbd5e1' }}></div>
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -132,11 +189,30 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                 <DetailRow label="פתוגן מטרה" value={selectedSample.pathogen} />
                 <DetailRow label="תאריך דגימה" value={new Date(selectedSample.date).toLocaleDateString('he-IL')} />
 
-                <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
-                  <span className="text-sm font-bold text-slate-500">סטטוס עמידות:</span>
-                  <span className="px-4 py-1.5 rounded-full text-xs font-black shadow-sm" style={{ backgroundColor: `${results[selectedSample.id] ? RESISTANCE_COLORS[results[selectedSample.id]] : '#f1f5f9'}20`, color: results[selectedSample.id] ? RESISTANCE_COLORS[results[selectedSample.id]] : '#64748b', border: `1px solid ${results[selectedSample.id] ? RESISTANCE_COLORS[results[selectedSample.id]] : '#cbd5e1'}30` }}>
-                    {results[selectedSample.id] || 'בבחינת מעבדה'}
-                  </span>
+                <div className="pt-4 border-t border-slate-100">
+                  <span className="text-sm font-bold text-slate-500 block mb-2">תוצאות בדיקה:</span>
+                  <div className="space-y-2">
+                    {results[selectedSample.id] && results[selectedSample.id].length > 0 ? (
+                      results[selectedSample.id].map((test, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
+                          <div>
+                            <span className="font-bold text-slate-700 ml-2">{test.material}</span>
+                            <span className="text-xs text-slate-400">({test.dosage} PPM)</span>
+                          </div>
+                          <span className="px-3 py-0.5 rounded-full text-xs font-black"
+                            style={{
+                              backgroundColor: `${RESISTANCE_COLORS[test.category]}20`,
+                              color: RESISTANCE_COLORS[test.category],
+                              border: `1px solid ${RESISTANCE_COLORS[test.category]}30`
+                            }}>
+                            {test.category}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-slate-400 text-sm">טרם הוזנו תוצאות</span>
+                    )}
+                  </div>
                 </div>
               </div>
 

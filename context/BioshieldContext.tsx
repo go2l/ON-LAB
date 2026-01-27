@@ -1,27 +1,22 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Sample, ResistanceCategory, SampleStatus, SampleEvent } from '../types';
+import { Sample, ResistanceCategory, SampleStatus, SampleEvent, SensitivityTest } from '../types';
 import { MOCK_SAMPLES } from '../constants';
 
 interface BioshieldContextType {
     samples: Sample[];
-    results: Record<string, ResistanceCategory>;
+    results: Record<string, SensitivityTest[]>;
     activeView: string;
     setView: (view: string) => void;
     addSample: (newSample: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => string;
     updateStatus: (id: string, status: SampleStatus) => void;
-    addResult: (sampleId: string, resistance: ResistanceCategory) => void;
+    addResult: (sampleId: string, results: SensitivityTest[]) => void;
 }
 
 const BioshieldContext = createContext<BioshieldContextType | undefined>(undefined);
 
 export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [samples, setSamples] = useState<Sample[]>(MOCK_SAMPLES);
-    const [results, setResults] = useState<Record<string, ResistanceCategory>>({
-        's1': ResistanceCategory.S,
-        's2': ResistanceCategory.HS,
-        's3': ResistanceCategory.R,
-        's5': ResistanceCategory.T,
-    });
+    const [results, setResults] = useState<Record<string, SensitivityTest[]>>({});
     const [activeView, setActiveView] = useState('map');
 
     const addSample = (newSampleData: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => {
@@ -64,8 +59,8 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
         }));
     };
 
-    const addResult = (sampleId: string, resistance: ResistanceCategory) => {
-        setResults(prev => ({ ...prev, [sampleId]: resistance }));
+    const addResult = (sampleId: string, newResults: SensitivityTest[]) => {
+        setResults(prev => ({ ...prev, [sampleId]: newResults }));
         setSamples(prev => prev.map(s => {
             if (s.id === sampleId) {
                 const newEvent: SampleEvent = {
@@ -73,7 +68,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                     timestamp: new Date().toISOString(),
                     type: 'RESULT_ADDED',
                     user: 'חוקר מעבדה',
-                    description: `הוזנו תוצאות: ${resistance}`
+                    description: `הוזנו ${newResults.length} תוצאות מעבדה`
                 };
                 return { ...s, history: [...s.history, newEvent] };
             }

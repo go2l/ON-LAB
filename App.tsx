@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { Layout } from './components/Layout';
 import { FieldIntake } from './components/FieldIntake';
-import { ManagerDashboard } from './components/ManagerDashboard';
 import { LabDashboard } from './components/LabDashboard';
 import { SampleList } from './components/SampleList';
+
+// Lazy load Map component to avoid Leaflet SSR/Init issues crashing the app
+const ManagerDashboard = React.lazy(() =>
+  import('./components/ManagerDashboard').then(module => ({ default: module.ManagerDashboard }))
+);
 
 import { BioshieldProvider, useBioshield } from './context/BioshieldContext';
 
@@ -25,10 +29,16 @@ function AppContent() {
     >
       <div className="h-full">
         {activeView === 'map' && (
-          <ManagerDashboard
-            samples={samples}
-            results={results}
-          />
+          <React.Suspense fallback={
+            <div className="flex justify-center items-center h-full">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          }>
+            <ManagerDashboard
+              samples={samples}
+              results={results}
+            />
+          </React.Suspense>
         )}
 
         {activeView === 'add' && (
