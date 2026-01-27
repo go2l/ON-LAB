@@ -25,7 +25,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
             </div>
             <div className="space-y-1">
               <h1 className="text-5xl md:text-6xl font-black tracking-tight text-slate-800">
-                PORTAL<span className="text-blue-600">SHIELD</span><span className="text-blue-200 text-2xl font-light">.IL</span>
+                ON<span className="text-blue-600">-LAB</span>
               </h1>
               <p className="text-blue-400 font-bold tracking-[0.3em] text-[11px] uppercase">
                 Israel Information Association Portal
@@ -73,9 +73,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
 
         {/* Footer Info */}
         <div className="mt-20 animate-fade-in opacity-40 hover:opacity-100 transition-opacity">
-          <p className="text-[11px] font-bold text-slate-500 tracking-[0.2em] flex items-center gap-4">
+          <p className="text-xs font-bold text-slate-500 tracking-wide flex items-center gap-4">
             <span className="h-[1px] w-8 bg-slate-300"></span>
-            OFFICIAL GOVERNMENT DATA PORTAL // 2026
+            המערכת פותחה על ידי אוהד נוריאל
             <span className="h-[1px] w-8 bg-slate-300"></span>
           </p>
         </div>
