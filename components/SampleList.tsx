@@ -67,19 +67,19 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                     <p className="text-slate-500 text-sm">מעקב שקוף אחר שרשרת הטיפול בדגימות מהשדה למעבדה</p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="relative">
+                <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                    <div className="relative w-full md:w-auto">
                         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
                             placeholder="חיפוש לפי מזהה, גידול או שולח..."
-                            className="input-clean pr-10 py-2.5 text-sm w-64"
+                            className="input-clean pr-10 py-2.5 text-sm w-full md:w-64"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                     <select
-                        className="input-clean py-2.5 text-sm"
+                        className="input-clean py-2.5 text-sm w-full md:w-auto"
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
                     >
@@ -92,7 +92,8 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
             </div>
 
             <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
-                <table className="w-full text-right border-collapse">
+                {/* Desktop Table View */}
+                <table className="w-full text-right border-collapse hidden md:table">
                     <thead>
                         <tr className="bg-slate-50/50 border-b border-slate-100">
                             <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">מזהה דגימה</th>
@@ -136,6 +137,51 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                         ))}
                     </tbody>
                 </table>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4 p-4">
+                    {filteredSamples.map((sample) => (
+                        <div
+                            key={sample.id}
+                            onClick={() => setSelectedDetailedSample(sample)}
+                            className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm active:scale-[0.98] transition-all"
+                        >
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <span className="font-black text-lg text-blue-600 tracking-tighter block mb-1">{sample.internalId}</span>
+                                    <span className="text-xs text-slate-500 font-bold flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {new Date(sample.date).toLocaleDateString('he-IL')}
+                                    </span>
+                                </div>
+                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold ${getStatusColor(sample.status)}`}>
+                                    {getStatusIcon(sample.status)}
+                                    <span className="max-w-[80px] truncate">{sample.status}</span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase">גידול</p>
+                                    <p className="text-sm font-bold text-slate-700">{sample.crop}</p>
+                                    <p className="text-[10px] text-slate-400">{sample.variety || 'ללא זן'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase">שולח</p>
+                                    <p className="text-sm font-bold text-slate-700 truncate">{sample.collectorName}</p>
+                                </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-slate-50 flex justify-between items-center text-xs text-slate-500 font-medium">
+                                <span>{sample.lab}</span>
+                                <span className="text-blue-600 font-bold flex items-center">
+                                    לפרטים מלאים
+                                    <ChevronRight className="w-4 h-4 mr-1" />
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
 
                 {filteredSamples.length === 0 && (
                     <div className="py-20 text-center">

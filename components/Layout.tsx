@@ -24,7 +24,7 @@ export const Layout: React.FC<LayoutProps> = ({
   activeView,
   onViewChange
 }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
 
   const navigation = [
     { name: 'דף הבית', view: 'map', icon: LayoutDashboard },

@@ -194,19 +194,35 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                   <div className="space-y-2">
                     {results[selectedSample.id] && results[selectedSample.id].length > 0 ? (
                       results[selectedSample.id].map((test, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
-                          <div>
-                            <span className="font-bold text-slate-700 ml-2">{test.material}</span>
-                            <span className="text-xs text-slate-400">({test.dosage} PPM)</span>
+                        <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col gap-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="font-black text-slate-700 ml-2">{test.material}</span>
+                              <span className="text-xs font-bold text-slate-400">({test.dosage} PPM)</span>
+                            </div>
+                            <span className="px-3 py-0.5 rounded-full text-xs font-black"
+                              style={{
+                                backgroundColor: `${RESISTANCE_COLORS[test.category]}20`,
+                                color: RESISTANCE_COLORS[test.category],
+                                border: `1px solid ${RESISTANCE_COLORS[test.category]}30`
+                              }}>
+                              {test.category}
+                            </span>
                           </div>
-                          <span className="px-3 py-0.5 rounded-full text-xs font-black"
-                            style={{
-                              backgroundColor: `${RESISTANCE_COLORS[test.category]}20`,
-                              color: RESISTANCE_COLORS[test.category],
-                              border: `1px solid ${RESISTANCE_COLORS[test.category]}30`
-                            }}>
-                            {test.category}
-                          </span>
+
+                          <div className="flex items-center gap-2 pt-2 border-t border-slate-200/50">
+                            <span className="text-[10px] bg-white px-2 py-0.5 rounded border text-slate-500 font-medium">
+                              {new Date(test.date || Date.now()).toLocaleDateString('he-IL')}
+                            </span>
+                            <span className="text-[10px] text-slate-400 flex-1 truncate">
+                              ע״י {test.user || 'לא ידוע'}
+                            </span>
+                          </div>
+                          {test.notes && (
+                            <p className="text-[10px] text-slate-500 italic bg-white p-1.5 rounded border border-slate-100">
+                              "{test.notes}"
+                            </p>
+                          )}
                         </div>
                       ))
                     ) : (

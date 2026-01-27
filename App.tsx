@@ -11,6 +11,8 @@ const ManagerDashboard = React.lazy(() =>
 
 import { BioshieldProvider, useBioshield } from './context/BioshieldContext';
 
+import { LandingPage } from './components/LandingPage';
+
 function AppContent() {
   const {
     activeView,
@@ -28,6 +30,10 @@ function AppContent() {
       onViewChange={setView}
     >
       <div className="h-full">
+        {activeView === 'landing' && (
+          <LandingPage onEnter={() => setView('map')} />
+        )}
+
         {activeView === 'map' && (
           <React.Suspense fallback={
             <div className="flex justify-center items-center h-full">

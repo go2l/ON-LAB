@@ -1,28 +1,11 @@
-import React, { useState } from 'react';
-import { ShieldCheck, ChevronRight, Binary, Fingerprint, Lock, ShieldAlert, Cpu } from 'lucide-react';
+import React from 'react';
+import { ShieldCheck, ChevronRight, Lock } from 'lucide-react';
 
 interface LandingPageProps {
   onEnter: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
-  const [status, setStatus] = useState<'IDLE' | 'SCANNING' | 'AUTHORIZED'>('IDLE');
-  const [progress, setProgress] = useState(0);
-
-  const startScan = () => {
-    setStatus('SCANNING');
-    let p = 0;
-    const interval = setInterval(() => {
-      p += Math.random() * 15;
-      if (p >= 100) {
-        p = 100;
-        clearInterval(interval);
-        setTimeout(() => setStatus('AUTHORIZED'), 500);
-      }
-      setProgress(p);
-    }, 120);
-  };
-
   return (
     <div className="relative min-h-screen bg-slate-50 flex items-center justify-center overflow-hidden font-sans">
       {/* Abstract Background Patterns */}
@@ -51,96 +34,41 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
           </div>
         </div>
 
-        {/* Professional Login Card style for Entry */}
-        <div className="w-full max-w-md bg-white rounded-[40px] p-10 shadow-2xl shadow-blue-200/40 border border-slate-100 relative overflow-hidden">
+        {/* Login Card */}
+        <div className="w-full max-w-md bg-white rounded-[40px] p-10 shadow-2xl shadow-blue-200/40 border border-slate-100 flex flex-col gap-6 animate-fade-in-up">
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-black text-slate-800">כניסה למערכת</h2>
+            <p className="text-slate-500 text-sm">פורטל רשמי - איגוד המידע לעמידות</p>
+          </div>
 
-          {status === 'IDLE' && (
-            <div className="space-y-10 animate-fade-in-up">
-              <div className="text-center space-y-3">
-                <h2 className="text-2xl font-black text-slate-800">אימות גישה למערכת</h2>
-                <p className="text-slate-500 text-sm leading-relaxed px-4">
-                  לצורך גישה למאגרי המידע הלאומיים של עמידות פתוגנים, יש לבצע אימות פרוטוקול אבטחה.
-                </p>
-              </div>
+          <div className="space-y-3">
+            <button
+              onClick={onEnter}
+              className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-3 active:scale-95"
+            >
+              <span>כניסה למערכת</span>
+              <ChevronRight className="w-5 h-5" />
+            </button>
 
-              <button
-                onClick={startScan}
-                className="w-full group relative bg-blue-600 hover:bg-blue-700 text-white font-black py-5 px-8 rounded-2xl transition-all shadow-xl shadow-blue-200 flex items-center justify-center overflow-hidden active:scale-95"
-              >
-                <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></div>
-                <Fingerprint className="w-6 h-6 ml-3" />
-                <span className="text-lg">התחל אימות ביומטרי</span>
-              </button>
+            <button
+              disabled
+              className="w-full bg-white border-2 border-slate-100 text-slate-400 font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 cursor-not-allowed opacity-60"
+            >
+              {/* Google Icon SVG */}
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M23.766 12.2764C23.766 11.4607 23.6999 10.6406 23.5588 9.83807H12.24V14.4591H18.7217C18.4528 15.9494 17.5885 17.2678 16.323 18.1056V21.1039H20.19C22.4608 19.0139 23.766 15.9274 23.766 12.2764Z" fill="#4285F4" />
+                <path d="M12.24 24.0008C15.4765 24.0008 18.2059 22.9382 20.1945 21.1039L16.3275 18.1055C15.2517 18.8375 13.8627 19.252 12.2445 19.252C9.11388 19.252 6.45946 17.1399 5.50705 14.3003H1.5166V17.3912C3.55371 21.4434 7.7029 24.0008 12.24 24.0008Z" fill="#34A853" />
+                <path d="M5.50253 14.3003C5.00236 12.8099 5.00236 11.1961 5.50253 9.70575V6.61481H1.5166C-0.185517 10.0056 -0.185517 14.0004 1.5166 17.3912L5.50253 14.3003Z" fill="#FBBC05" />
+                <path d="M12.24 4.74966C13.9509 4.7232 15.6044 5.36697 16.8434 6.54867L20.2695 3.12262C18.1001 1.0855 15.2208 -0.034466 12.24 0.000808666C7.7029 0.000808666 3.55371 2.55822 1.5166 6.61481L5.50253 9.70575C6.45064 6.86173 9.10947 4.74966 12.24 4.74966Z" fill="#EA4335" />
+              </svg>
+              <span>התחברות עם Google</span>
+            </button>
+          </div>
 
-              <div className="grid grid-cols-3 gap-6 pt-6 border-t border-slate-50">
-                <div className="flex flex-col items-center group">
-                  <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-blue-50 transition-colors">
-                    <Lock className="w-5 h-5 text-slate-400 group-hover:text-blue-500" />
-                  </div>
-                  <span className="text-[9px] font-bold text-slate-400 mt-2">SECURE</span>
-                </div>
-                <div className="flex flex-col items-center group">
-                  <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-blue-50 transition-colors">
-                    <Cpu className="w-5 h-5 text-slate-400 group-hover:text-blue-500" />
-                  </div>
-                  <span className="text-[9px] font-bold text-slate-400 mt-2">ENCRYPT</span>
-                </div>
-                <div className="flex flex-col items-center group">
-                  <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-blue-50 transition-colors">
-                    <ShieldAlert className="w-5 h-5 text-slate-400 group-hover:text-blue-500" />
-                  </div>
-                  <span className="text-[9px] font-bold text-slate-400 mt-2">MONITOR</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {status === 'SCANNING' && (
-            <div className="space-y-12 animate-fade-in py-4">
-              <div className="relative h-48 flex items-center justify-center">
-                <svg className="absolute inset-0 w-full h-full -rotate-90">
-                  <circle cx="50%" cy="50%" r="80" fill="none" strokeWidth="8" className="stroke-slate-100" />
-                  <circle cx="50%" cy="50%" r="80" fill="none" strokeWidth="8" className="stroke-blue-600 transition-all duration-300"
-                    style={{ strokeDasharray: '502.4', strokeDashoffset: `${502.4 - (progress / 100) * 502.4}`, strokeLinecap: 'round' }} />
-                </svg>
-                <div className="flex flex-col items-center z-10">
-                  <span className="text-5xl font-black text-slate-800">{Math.round(progress)}%</span>
-                  <span className="text-[11px] text-blue-500 font-bold tracking-widest mt-2 uppercase">Authenticating</span>
-                </div>
-              </div>
-              <div className="space-y-3 mt-4">
-                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 px-2 uppercase">
-                  <span>Security Protocol</span>
-                  <span>Processing</span>
-                </div>
-                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${progress}%` }}></div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {status === 'AUTHORIZED' && (
-            <div className="space-y-10 animate-fade-in-up">
-              <div className="w-24 h-24 bg-green-500 rounded-[32px] flex items-center justify-center mx-auto shadow-2xl shadow-green-200 ring-8 ring-green-50">
-                <ShieldCheck className="w-12 h-12 text-white" />
-              </div>
-              <div className="space-y-3">
-                <h2 className="text-3xl font-black text-slate-800">הגישה אושרה</h2>
-                <p className="text-slate-500 font-medium text-sm leading-relaxed px-6">
-                  תהליך האימות הושלם בהצלחה. החיבור מאובטח ומנותב לשרתי איגוד המידע.
-                </p>
-              </div>
-              <button
-                onClick={onEnter}
-                className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 px-8 rounded-2xl transition-all flex items-center justify-center shadow-2xl group active:scale-95"
-              >
-                <span>כניסה ללוח הבקרה</span>
-                <ChevronRight className="mr-3 w-6 h-6 transition-transform group-hover:translate-x-1" />
-              </button>
-            </div>
-          )}
-
+          <div className="flex items-center justify-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">
+            <Lock className="w-3 h-3" />
+            <span>Secure Connection 2026</span>
+          </div>
         </div>
 
         {/* Footer Info */}

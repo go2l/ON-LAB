@@ -17,7 +17,7 @@ const BioshieldContext = createContext<BioshieldContextType | undefined>(undefin
 export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [samples, setSamples] = useState<Sample[]>(MOCK_SAMPLES);
     const [results, setResults] = useState<Record<string, SensitivityTest[]>>({});
-    const [activeView, setActiveView] = useState('map');
+    const [activeView, setActiveView] = useState('landing');
 
     const addSample = (newSampleData: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => {
         const newId = `BS-${Math.floor(Math.random() * 90000) + 10000}`;

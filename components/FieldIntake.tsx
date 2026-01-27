@@ -176,8 +176,8 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
   return (
     <div className="max-w-4xl mx-auto py-4 animate-fade-in" dir="rtl">
       {/* Header & Stepper */}
-      <div className="mb-12 text-center">
-        <h2 className="text-3xl font-black text-slate-800 mb-8">הזנת דגימת שטח חדשה</h2>
+      <div className="mb-8 md:mb-12 text-center">
+        <h2 className="text-2xl md:text-3xl font-black text-slate-800 mb-6 md:mb-8">הזנת דגימת שטח חדשה</h2>
 
         {/* Progress Stepper */}
         <div className="mb-12 relative px-4">
@@ -186,24 +186,24 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
             {[1, 2, 3, 4, 5].map((s) => (
               <div
                 key={s}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black transition-all shadow-sm ${step >= s ? 'bg-blue-600 text-white scale-110 shadow-blue-100' : 'bg-white text-slate-300 border-2 border-slate-50'
+                className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center font-black transition-all shadow-sm ${step >= s ? 'bg-blue-600 text-white scale-110 shadow-blue-100' : 'bg-white text-slate-300 border-2 border-slate-50'
                   }`}
               >
-                {step > s ? <CheckCircle2 className="w-6 h-6" /> : s}
+                {step > s ? <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6" /> : s}
               </div>
             ))}
           </div>
           <div className="flex justify-between mt-4 px-1">
-            <span className={`text-[10px] font-black uppercase tracking-wider ${step >= 1 ? 'text-blue-600' : 'text-slate-300'}`}>פרטי דוגם</span>
-            <span className={`text-[10px] font-black uppercase tracking-wider ${step >= 2 ? 'text-blue-600' : 'text-slate-300'}`}>ביולוגיה</span>
-            <span className={`text-[10px] font-black uppercase tracking-wider ${step >= 3 ? 'text-blue-600' : 'text-slate-300'}`}>מיקום</span>
-            <span className={`text-[10px] font-black uppercase tracking-wider ${step >= 4 ? 'text-blue-600' : 'text-slate-300'}`}>הדברה</span>
-            <span className={`text-[10px] font-black uppercase tracking-wider ${step >= 5 ? 'text-blue-600' : 'text-slate-300'}`}>סיכום</span>
+            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-wider ${step >= 1 ? 'text-blue-600' : 'text-slate-300'}`}>פרטי דוגם</span>
+            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-wider ${step >= 2 ? 'text-blue-600' : 'text-slate-300'}`}>ביולוגיה</span>
+            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-wider ${step >= 3 ? 'text-blue-600' : 'text-slate-300'}`}>מיקום</span>
+            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-wider ${step >= 4 ? 'text-blue-600' : 'text-slate-300'}`}>הדברה</span>
+            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-wider ${step >= 5 ? 'text-blue-600' : 'text-slate-300'}`}>סיכום</span>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-[40px] shadow-xl shadow-slate-200/50 border border-slate-100 p-10 md:p-16">
+      <form onSubmit={handleSubmit} className="bg-white rounded-[32px] md:rounded-[40px] shadow-xl shadow-slate-200/50 border border-slate-100 p-6 md:p-16">
         <div className="flex items-center gap-4 mb-12">
           <div className="p-3 bg-blue-50 rounded-2xl">
             {step === 1 && <User className="w-8 h-8 text-blue-600" />}
