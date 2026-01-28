@@ -78,26 +78,53 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
     };
 
     const addResult = (sampleId: string, newResults: SensitivityTest[]) => {
-        // Find new tests that didn't exist before
         const oldResults = results[sampleId] || [];
-        const oldIds = new Set(oldResults.map(r => r.id));
-        const brandNewTests = newResults.filter(r => !oldIds.has(r.id));
+        const oldResultsMap = new Map(oldResults.map(r => [r.id, r]));
+
+        const addedTests: SensitivityTest[] = [];
+        const updatedTests: SensitivityTest[] = [];
+
+        newResults.forEach(newTest => {
+            const oldTest = oldResultsMap.get(newTest.id);
+            if (!oldTest) {
+                addedTests.push(newTest);
+            } else {
+                // Check if meaningful fields changed
+                const hasChanged =
+                    oldTest.material !== newTest.material ||
+                    oldTest.dosage !== newTest.dosage ||
+                    oldTest.category !== newTest.category ||
+                    oldTest.notes !== newTest.notes;
+
+                if (hasChanged) {
+                    updatedTests.push(newTest);
+                }
+            }
+        });
 
         setResults(prev => ({ ...prev, [sampleId]: newResults }));
 
-        if (brandNewTests.length === 0) return; // No new tests to log in history
+        if (addedTests.length === 0 && updatedTests.length === 0) return;
 
         setSamples(prev => prev.map(s => {
             if (s.id === sampleId) {
-                const newEvents: SampleEvent[] = brandNewTests.map(test => ({
-                    id: `ev-${Date.now()}-${test.id}`,
+                const addedEvents: SampleEvent[] = addedTests.map(test => ({
+                    id: `ev-${Date.now()}-add-${test.id}`,
                     timestamp: new Date().toISOString(),
                     type: 'RESULT_ADDED',
-                    user: 'חוקר מעבדה',
+                    user: test.user || 'חוקר מעבדה',
                     description: `בדיקה נוספה: ${test.material} - ${test.dosage} PPM - ${test.category}`
                 }));
 
-                return { ...s, history: [...s.history, ...newEvents] };
+                const updatedEvents: SampleEvent[] = updatedTests.map(test => ({
+                    id: `ev-${Date.now()}-upd-${test.id}`,
+                    timestamp: new Date().toISOString(),
+                    type: 'RESULT_UPDATED',
+                    user: test.user || 'חוקר מעבדה',
+                    description: `עדכון תוצאה קיים: ${test.material} - ${test.dosage} PPM - ${test.category}`
+                }));
+
+                return { ...s, history: [...s.history, ...addedEvents, ...updatedEvents] };
             }
             return s;
         }));

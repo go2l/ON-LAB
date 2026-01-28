@@ -72,7 +72,7 @@ export interface GeoPoint {
 export interface SampleEvent {
   id: string;
   timestamp: string;
-  type: 'CREATED' | 'STATUS_CHANGE' | 'RESULT_ADDED' | 'LAB_CONFIRMATION' | 'NOTE_ADDED';
+  type: 'CREATED' | 'STATUS_CHANGE' | 'RESULT_ADDED' | 'RESULT_UPDATED' | 'LAB_CONFIRMATION' | 'NOTE_ADDED';
   user: string;
   description: string;
 }
