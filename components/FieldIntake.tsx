@@ -1,4 +1,9 @@
 import React, { useState } from 'react';
+
+// Lazy load LocationPicker to avoid SSR issues with Leaflet
+const LocationPicker = React.lazy(() =>
+  import('./LocationPicker').then(module => ({ default: module.LocationPicker }))
+);
 import {
   Sample,
   Region,
@@ -47,7 +52,7 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
     pathogen: Pathogen.BOTRYTIS,
     municipality: '',
     plotName: '',
-    lab: 'מעבדת גילת',
+    lab: 'תחנת עדן - נדב ניצן',
     priority: 'רגיל',
     notes: '',
     coordinates: { lat: 31.5, lng: 34.8 },
@@ -371,18 +376,34 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
               </FormGroup>
 
               <FormGroup label="מיקום GPS" icon={<Navigation className="w-4 h-4 ml-2 text-red-500" />}>
-                <div className="flex gap-2">
-                  <div className="flex-1 input-clean bg-slate-50 text-slate-500 flex items-center text-xs">
-                    {formData.coordinates.lat.toFixed(4)}, {formData.coordinates.lng.toFixed(4)}
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <div className="flex-1 input-clean bg-slate-50 text-slate-500 flex items-center text-xs">
+                      {formData.coordinates.lat.toFixed(4)}, {formData.coordinates.lng.toFixed(4)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGetGPS}
+                      className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl transition-all"
+                      title="דקור מיקום נוכחי"
+                    >
+                      <Navigation className="w-5 h-5" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleGetGPS}
-                    className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl transition-all"
-                    title="דקור מיקום נוכחי"
-                  >
-                    <Navigation className="w-5 h-5" />
-                  </button>
+
+                  {/* Manual Map Picker */}
+                  <div className="mt-2">
+                    <React.Suspense fallback={<div className="h-[300px] bg-slate-50 rounded-2xl animate-pulse flex items-center justify-center text-slate-400">טוען מפה...</div>}>
+                      <LocationPicker
+                        initialLat={formData.coordinates.lat}
+                        initialLng={formData.coordinates.lng}
+                        onLocationSelect={(lat, lng) => setFormData(prev => ({
+                          ...prev,
+                          coordinates: { lat, lng }
+                        }))}
+                      />
+                    </React.Suspense>
+                  </div>
                 </div>
               </FormGroup>
             </div>
@@ -394,9 +415,8 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
                   onChange={(e) => setFormData({ ...formData, lab: e.target.value })}
                   className="input-clean"
                 >
-                  <option>מעבדת גילת</option>
-                  <option>מעבדת נווה יער</option>
-                  <option>מעבדת המכון הוולקני</option>
+                  <option>תחנת עדן - נדב ניצן</option>
+                  <option>בר אילן - יריב בן נעים</option>
                 </select>
               </FormGroup>
 

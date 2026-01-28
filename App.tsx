@@ -12,6 +12,7 @@ const ManagerDashboard = React.lazy(() =>
 import { BioshieldProvider, useBioshield } from './context/BioshieldContext';
 
 import { LandingPage } from './components/LandingPage';
+import { ReportsDashboard } from './components/ReportsDashboard';
 
 function AppContent() {
   const {
@@ -63,7 +64,11 @@ function AppContent() {
           <SampleList samples={samples} />
         )}
 
-        {(activeView === 'users' || activeView === 'reports') && (
+        {activeView === 'reports' && (
+          <ReportsDashboard samples={samples} results={results} />
+        )}
+
+        {activeView === 'users' && (
           <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[32px] border border-slate-200">
             <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
               <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
