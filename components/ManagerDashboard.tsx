@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, LayersControl, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Sample, ResistanceCategory, SensitivityTest } from '../types';
 import { RESISTANCE_COLORS } from '../constants';
 import { X, MapPin, Search, Database, AlertCircle, Info, ChevronLeft } from 'lucide-react';
 
 // Fix moved inside component to avoid SSR/Initial load issues
+
+import { useBioshield } from '../context/BioshieldContext';
 
 interface ManagerDashboardProps {
   samples: Sample[];
@@ -53,13 +56,17 @@ const getWorstResistance = (tests: SensitivityTest[] | undefined): ResistanceCat
 };
 
 export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, results }) => {
+  const { setView, selectSample } = useBioshield();
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterPathogen, setFilterPathogen] = useState('ALL');
 
-  const filteredSamples = samples.filter(s =>
-    s.internalId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.region.includes(searchTerm)
-  );
+  const filteredSamples = samples.filter(s => {
+    const matchesSearch = s.internalId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.region.includes(searchTerm);
+    const matchesPathogen = filterPathogen === 'ALL' || s.pathogen === filterPathogen;
+    return matchesSearch && matchesPathogen;
+  });
 
   const totalResistant = Object.values(results).filter(tests =>
     getWorstResistance(tests) === ResistanceCategory.R
@@ -68,7 +75,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
   const resistanceRate = samples.length > 0 ? ((totalResistant / samples.length) * 100).toFixed(1) : "0";
 
   useEffect(() => {
-    // Fix for default Leaflet markers
+    // ... Leaflet fix ...
     try {
       // @ts-ignore
       delete L.Icon.Default.prototype._getIconUrl;
@@ -84,8 +91,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
 
   return (
     <div className="space-y-8 animate-fade-in" dir="rtl">
-
-      {/* Page Header */}
+      {/* ... Header ... */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-800">מרכז בקרה ארצי</h2>
@@ -99,7 +105,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
         </div>
       </div>
 
-      {/* Top Stats */}
+      {/* ... Stats ... */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatsCard
           label="סה״כ דגימות במערכת"
@@ -122,7 +128,19 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Map Container */}
         <div className="lg:col-span-8 bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-sm h-[50vh] md:h-[700px] relative z-0 flex flex-col">
-          <div className="p-4 md:absolute md:top-6 md:right-6 md:z-[1000] w-full md:w-72 bg-white md:bg-transparent border-b md:border-none border-slate-100">
+          <div className="p-4 md:absolute md:top-6 md:right-6 md:z-[1000] w-full md:w-72 bg-white md:bg-transparent border-b md:border-none border-slate-100 flex flex-col gap-2">
+
+            <select
+              value={filterPathogen}
+              onChange={(e) => setFilterPathogen(e.target.value)}
+              className="w-full bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl py-2 px-4 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all font-sans text-sm"
+            >
+              <option value="ALL">כל הפתוגנים</option>
+              {Array.from(new Set(samples.map(s => s.pathogen))).map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+
             <div className="relative">
               <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
               <input
@@ -143,10 +161,29 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
             className="w-full h-full z-0"
             style={{ borderRadius: '32px' }}
           >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            />
+            <LayersControl position="topleft">
+              <LayersControl.BaseLayer checked name="מפה רגילה">
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                />
+              </LayersControl.BaseLayer>
+
+              <LayersControl.BaseLayer name="תצלום אוויר">
+                <LayerGroup>
+                  <TileLayer
+                    attribution='Tiles &copy; Esri &mdash; &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  />
+                  <TileLayer
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+                  />
+                  <TileLayer
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                  />
+                </LayerGroup>
+              </LayersControl.BaseLayer>
+            </LayersControl>
             {filteredSamples.map((sample) => {
               const sampleTests = results[sample.id];
               const worstResistance = getWorstResistance(sampleTests);
@@ -232,7 +269,14 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                 </div>
               </div>
 
-              <button className="w-full bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center text-sm border border-slate-100">
+              <button
+                onClick={() => {
+                  if (selectedSample) {
+                    selectSample(selectedSample.id);
+                    setView('list');
+                  }
+                }}
+                className="w-full bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center text-sm border border-slate-100">
                 צפייה בדו״ח מפורט
                 <ChevronLeft className="mr-2 w-4 h-4" />
               </button>

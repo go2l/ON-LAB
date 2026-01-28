@@ -29,8 +29,7 @@ export enum SampleStatus {
   PENDING_LAB_CONFIRMATION = 'ממתינה לאישור קבלה במעבדה',
   RECEIVED_LAB = 'התקבל במעבדה',
   IN_TESTING = 'בתהליך בדיקה',
-  RESULTS_ENTERED = 'תוצאות הוזנו',
-  ARCHIVED = 'בארכיון'
+  RESULTS_ENTERED = 'תוצאות הוזנו'
 }
 
 export enum ResistanceCategory {
@@ -92,6 +91,7 @@ export interface Sample {
   pathogen: Pathogen;
   coordinates: GeoPoint;
   status: SampleStatus;
+  isArchived?: boolean; // New flag for archive visibility
   notes?: string;
   imageUrl?: string;
   municipality?: string;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, LayersControl, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -56,10 +56,29 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ initialLat, init
                 style={{ height: '100%', width: '100%' }}
                 scrollWheelZoom={false} // Disable scroll zoom to prevent accidental page scrolling
             >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                />
+                <LayersControl position="topleft">
+                    <LayersControl.BaseLayer checked name="מפה רגילה">
+                        <TileLayer
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                        />
+                    </LayersControl.BaseLayer>
+
+                    <LayersControl.BaseLayer name="תצלום אוויר">
+                        <LayerGroup>
+                            <TileLayer
+                                attribution='Tiles &copy; Esri &mdash; &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                            />
+                            <TileLayer
+                                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+                            />
+                            <TileLayer
+                                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                            />
+                        </LayerGroup>
+                    </LayersControl.BaseLayer>
+                </LayersControl>
                 <Marker position={[position.lat, position.lng]} />
                 <MapEvents onSelect={handleSelect} />
             </MapContainer>

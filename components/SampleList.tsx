@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sample, SampleStatus, SampleEvent } from '../types';
 import {
     Search,
@@ -18,22 +18,43 @@ import {
     ChevronRight,
     ClipboardList
 } from 'lucide-react';
+import { useBioshield } from '../context/BioshieldContext';
 
 interface SampleListProps {
     samples: Sample[];
 }
 
 export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
+    const { selectedSampleId, selectSample } = useBioshield();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
+    const [filterPathogen, setFilterPathogen] = useState<string>('ALL');
     const [selectedDetailedSample, setSelectedDetailedSample] = useState<Sample | null>(null);
+
+    // Sync with global selection
+    useEffect(() => {
+        if (selectedSampleId) {
+            const sample = samples.find(s => s.id === selectedSampleId);
+            if (sample) setSelectedDetailedSample(sample);
+        } else {
+            setSelectedDetailedSample(null);
+        }
+    }, [selectedSampleId, samples]);
+
+    const handleSelectSample = (sample: Sample | null) => {
+        setSelectedDetailedSample(sample);
+        selectSample(sample ? sample.id : null);
+    };
 
     const filteredSamples = samples.filter(s => {
         const matchesSearch = s.internalId.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.crop.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.collectorName.toLowerCase().includes(searchTerm.toLowerCase());
+
         const matchesStatus = statusFilter === 'ALL' || s.status === statusFilter;
-        return matchesSearch && matchesStatus;
+        const matchesPathogen = filterPathogen === 'ALL' || s.pathogen === filterPathogen;
+
+        return matchesSearch && matchesStatus && matchesPathogen;
     });
 
     const getStatusIcon = (status: SampleStatus) => {
@@ -43,7 +64,6 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
             case SampleStatus.RECEIVED_LAB: return <FlaskConical className="w-4 h-4 text-purple-500" />;
             case SampleStatus.IN_TESTING: return <FlaskConical className="w-4 h-4 text-orange-500 animate-pulse" />;
             case SampleStatus.RESULTS_ENTERED: return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-            case SampleStatus.ARCHIVED: return <Archive className="w-4 h-4 text-slate-400" />;
             default: return null;
         }
     };
@@ -78,6 +98,18 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+
+                    <select
+                        className="input-clean py-2.5 text-sm w-full md:w-auto"
+                        value={filterPathogen}
+                        onChange={(e) => setFilterPathogen(e.target.value)}
+                    >
+                        <option value="ALL">כל הפתוגנים</option>
+                        {Array.from(new Set(samples.map(s => s.pathogen))).map(p => (
+                            <option key={p} value={p}>{p}</option>
+                        ))}
+                    </select>
+
                     <select
                         className="input-clean py-2.5 text-sm w-full md:w-auto"
                         value={statusFilter}
@@ -109,7 +141,7 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                             <tr
                                 key={sample.id}
                                 className="hover:bg-slate-50 transition-colors group cursor-pointer"
-                                onClick={() => setSelectedDetailedSample(sample)}
+                                onClick={() => handleSelectSample(sample)}
                             >
                                 <td className="px-6 py-4">
                                     <span className="font-black text-blue-600 tracking-tighter">{sample.internalId}</span>
@@ -143,7 +175,7 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                     {filteredSamples.map((sample) => (
                         <div
                             key={sample.id}
-                            onClick={() => setSelectedDetailedSample(sample)}
+                            onClick={() => handleSelectSample(sample)}
                             className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm active:scale-[0.98] transition-all"
                         >
                             <div className="flex justify-between items-start mb-4">
@@ -198,7 +230,7 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" dir="rtl">
                     <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col relative">
                         <button
-                            onClick={() => setSelectedDetailedSample(null)}
+                            onClick={() => handleSelectSample(null)}
                             className="absolute top-6 left-6 p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors z-10"
                         >
                             <X className="w-6 h-6" />

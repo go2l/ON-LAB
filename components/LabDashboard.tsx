@@ -25,10 +25,12 @@ interface LabDashboardProps {
 }
 
 export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateStatus, onSaveResult }) => {
-  const { results } = useBioshield();
+  const { results, toggleArchive } = useBioshield();
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'active' | 'archived'>('active');
+  const [filterLab, setFilterLab] = useState('ALL');
+  const [filterPathogen, setFilterPathogen] = useState('ALL');
 
   const [sensitivityTests, setSensitivityTests] = useState<SensitivityTest[]>([]);
   const [newTest, setNewTest] = useState<Partial<SensitivityTest>>({ material: '', dosage: '', category: ResistanceCategory.S });
@@ -49,11 +51,14 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
     const matchesSearch = s.internalId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.region.toLowerCase().includes(searchTerm.toLowerCase());
 
-    if (viewMode === 'active') {
-      return matchesSearch && s.status !== SampleStatus.ARCHIVED;
-    } else {
-      return matchesSearch && s.status === SampleStatus.ARCHIVED;
-    }
+    // Filters
+    const matchesLab = filterLab === 'ALL' || s.lab === filterLab;
+    const matchesPathogen = filterPathogen === 'ALL' || s.pathogen === filterPathogen;
+
+    // Archive Logic
+    const matchesView = viewMode === 'active' ? !s.isArchived : s.isArchived;
+
+    return matchesSearch && matchesLab && matchesPathogen && matchesView;
   });
 
   const handleConfirmReceipt = () => {
@@ -118,7 +123,7 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
   const handleArchiveSample = () => {
     if (selectedSample) {
       if (confirm("האם להעביר דגימה זו לארכיון? היא תוסתר מתור העבודה השוטף.")) {
-        onUpdateStatus(selectedSample.id, SampleStatus.ARCHIVED);
+        toggleArchive(selectedSample.id, true);
         setSelectedSample(null);
       }
     }
@@ -126,8 +131,10 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
 
   const handleRestoreSample = () => {
     if (selectedSample) {
-      onUpdateStatus(selectedSample.id, SampleStatus.RESULTS_ENTERED);
-      setSelectedSample(null);
+      if (confirm("האם להחזיר דגימה זו לרשימה הפעילה?")) {
+        toggleArchive(selectedSample.id, false);
+        setSelectedSample(null);
+      }
     }
   };
 
@@ -161,6 +168,29 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
               ארכיון (מוסתר)
             </button>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2 px-1 mb-2">
+          <select
+            value={filterLab}
+            onChange={(e) => setFilterLab(e.target.value)}
+            className="input-clean py-2 text-xs"
+          >
+            <option value="ALL">כל המעבדות</option>
+            {Array.from(new Set(samples.map(s => s.lab))).filter(Boolean).map(lab => (
+              <option key={lab} value={lab}>{lab}</option>
+            ))}
+          </select>
+          <select
+            value={filterPathogen}
+            onChange={(e) => setFilterPathogen(e.target.value)}
+            className="input-clean py-2 text-xs"
+          >
+            <option value="ALL">כל הפתוגנים</option>
+            {Array.from(new Set(samples.map(s => s.pathogen))).map(p => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
         </div>
 
         <div className="relative">
@@ -394,7 +424,7 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
 
                 <div className="flex flex-col md:flex-row gap-4">
                   {/* Archive Button (Only visible if not already archived) */}
-                  {selectedSample.status !== SampleStatus.ARCHIVED && (
+                  {!selectedSample.isArchived && (
                     <button
                       onClick={handleArchiveSample}
                       className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-5 px-6 rounded-[20px] transition-all flex items-center justify-center order-2 md:order-1"
@@ -406,7 +436,7 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
                   )}
 
                   {/* Restore Button (Only visible if archived) */}
-                  {selectedSample.status === SampleStatus.ARCHIVED && (
+                  {selectedSample.isArchived && (
                     <button
                       onClick={handleRestoreSample}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-[20px] transition-all flex items-center justify-center shadow-xl shadow-blue-100 text-lg"
@@ -417,7 +447,7 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
                   )}
 
                   {/* Save Button (Only visible involved in active workflow) */}
-                  {selectedSample.status !== SampleStatus.ARCHIVED && (
+                  {!selectedSample.isArchived && (
                     <button
                       onClick={handleSaveResult}
                       className="bg-blue-600 hover:bg-blue-700 text-white font-black py-5 px-8 rounded-[20px] transition-all flex items-center justify-center shadow-xl shadow-blue-100 text-lg md:flex-[2] order-1 md:order-2"

@@ -10,6 +10,9 @@ interface BioshieldContextType {
     addSample: (newSample: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => string;
     updateStatus: (id: string, status: SampleStatus) => void;
     addResult: (sampleId: string, results: SensitivityTest[]) => void;
+    selectedSampleId: string | null;
+    selectSample: (id: string | null) => void;
+    toggleArchive: (id: string, isArchived: boolean) => void;
 }
 
 const BioshieldContext = createContext<BioshieldContextType | undefined>(undefined);
@@ -18,6 +21,11 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
     const [samples, setSamples] = useState<Sample[]>(MOCK_SAMPLES);
     const [results, setResults] = useState<Record<string, SensitivityTest[]>>({});
     const [activeView, setActiveView] = useState('landing');
+    const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
+
+    const selectSample = (id: string | null) => {
+        setSelectedSampleId(id);
+    };
 
     const addSample = (newSampleData: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => {
         const newId = `BS-${Math.floor(Math.random() * 90000) + 10000}`;
@@ -36,6 +44,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             id: `s-${Date.now()}`,
             internalId: newId,
             status: newSampleData.status || SampleStatus.PENDING_LAB_CONFIRMATION,
+            isArchived: false,
             history: [initialEvent],
             pesticideHistory: newSampleData.pesticideHistory || []
         };
@@ -59,18 +68,36 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
         }));
     };
 
+    const toggleArchive = (id: string, isArchived: boolean) => {
+        setSamples(prev => prev.map(s => {
+            if (s.id === id) {
+                return { ...s, isArchived };
+            }
+            return s;
+        }));
+    };
+
     const addResult = (sampleId: string, newResults: SensitivityTest[]) => {
+        // Find new tests that didn't exist before
+        const oldResults = results[sampleId] || [];
+        const oldIds = new Set(oldResults.map(r => r.id));
+        const brandNewTests = newResults.filter(r => !oldIds.has(r.id));
+
         setResults(prev => ({ ...prev, [sampleId]: newResults }));
+
+        if (brandNewTests.length === 0) return; // No new tests to log in history
+
         setSamples(prev => prev.map(s => {
             if (s.id === sampleId) {
-                const newEvent: SampleEvent = {
-                    id: `ev-${Date.now()}`,
+                const newEvents: SampleEvent[] = brandNewTests.map(test => ({
+                    id: `ev-${Date.now()}-${test.id}`,
                     timestamp: new Date().toISOString(),
                     type: 'RESULT_ADDED',
                     user: 'חוקר מעבדה',
-                    description: `הוזנו ${newResults.length} תוצאות מעבדה`
-                };
-                return { ...s, history: [...s.history, newEvent] };
+                    description: `בדיקה נוספה: ${test.material} - ${test.dosage} PPM - ${test.category}`
+                }));
+
+                return { ...s, history: [...s.history, ...newEvents] };
             }
             return s;
         }));
@@ -84,7 +111,10 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             setView: setActiveView,
             addSample,
             updateStatus,
-            addResult
+            addResult,
+            selectedSampleId,
+            selectSample,
+            toggleArchive
         }}>
             {children}
         </BioshieldContext.Provider>
