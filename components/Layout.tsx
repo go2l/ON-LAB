@@ -30,7 +30,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { name: 'דף הבית', view: 'map', icon: LayoutDashboard },
     { name: 'דגימות חדשות', view: 'add', icon: Plus },
     { name: 'רשימת הדגימות', view: 'list', icon: FileText },
-    { name: 'מעקב מעבדה (נדרשת הרשאה)', view: 'lab', icon: Beaker },
+    { name: 'מעקב מעבדה', subtitle: '(נדרשת הרשאה)', view: 'lab', icon: Beaker },
     { name: 'ניהול משתמשים', view: 'users', icon: Users },
     { name: 'מפות ודוחות', view: 'reports', icon: ShieldCheck },
   ];
@@ -52,9 +52,8 @@ export const Layout: React.FC<LayoutProps> = ({
       >
         <div className="p-6 flex items-center justify-between border-b border-slate-100">
           {(isSidebarOpen || window.innerWidth < 768) && (
-            <div className="animate-fade-in group">
-              <h1 className="text-xl font-bold text-blue-800 leading-tight">ON-LAB-IL</h1>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">הפורטל הלאומי לאיגוד המידע לעמידות לפונגצידים</p>
+            <div className="animate-fade-in group flex flex-col items-start gap-2">
+              <img src="/logo.png" alt="ON-LAB" className="h-16 w-auto object-contain" />
             </div>
           )}
           <button
@@ -86,8 +85,14 @@ export const Layout: React.FC<LayoutProps> = ({
                 : 'text-slate-500 hover:bg-slate-50 font-medium'
                 }`}
             >
-              <item.icon className={`w-5 h-5 ${isSidebarOpen ? 'ml-3' : 'mx-auto md:mx-auto'}`} />
-              {(isSidebarOpen || window.innerWidth < 768) && <span className="text-sm">{item.name}</span>}
+              <item.icon className={`w-5 h-5 flex-shrink-0 ${isSidebarOpen ? 'ml-3' : 'mx-auto md:mx-auto'}`} />
+              {(isSidebarOpen || window.innerWidth < 768) && (
+                <div className="flex flex-col items-start leading-tight text-right">
+                  <span className="text-sm">{item.name}</span>
+                  {/* @ts-ignore */}
+                  {item.subtitle && <span className="text-[10px] opacity-75 font-normal">{item.subtitle}</span>}
+                </div>
+              )}
             </button>
           ))}
         </nav>
@@ -119,6 +124,7 @@ export const Layout: React.FC<LayoutProps> = ({
             >
               <Menu className="w-6 h-6" />
             </button>
+            <img src="/logo.png" className="h-8 w-auto md:hidden ml-2" alt="Logo" />
 
             <div className="relative w-full max-w-sm hidden md:block">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

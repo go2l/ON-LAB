@@ -20,17 +20,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
         {/* Branding Area */}
         <div className="mb-12 animate-fade-in">
           <div className="flex flex-col items-center mb-6">
-            <div className="p-4 bg-white rounded-[28px] shadow-xl shadow-blue-100/50 border border-blue-50 mb-6 group hover:scale-105 transition-transform duration-500">
-              <ShieldCheck className="w-16 h-16 text-blue-600" />
-            </div>
-            <div className="space-y-1">
-              <h1 className="text-5xl md:text-6xl font-black tracking-tight text-slate-800">
-                ON<span className="text-blue-600">-LAB</span>
-              </h1>
-              <p className="text-blue-400 font-bold tracking-[0.3em] text-[11px] uppercase">
-                Israel Information Association Portal
-              </p>
-            </div>
+            <img
+              src="/logo.png"
+              alt="ON-LAB Logo"
+              className="w-48 md:w-64 h-auto drop-shadow-xl mb-6 hover:scale-105 transition-transform duration-500"
+            />
+            <p className="text-blue-400 font-bold tracking-[0.3em] text-[11px] uppercase">
+              Israel Information Association Portal
+            </p>
           </div>
         </div>
 
