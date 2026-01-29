@@ -1,3 +1,4 @@
+import React from 'react';
 import { ShieldCheck, ChevronRight, Lock } from 'lucide-react';
 
 interface LandingPageProps {
@@ -22,7 +23,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
             <img
               src="/logo.png"
               alt="ON-LAB Logo"
-              className="w-48 md:w-64 h-auto drop-shadow-xl mb-6 hover:scale-105 transition-transform duration-500"
+              className="w-64 md:w-80 h-auto drop-shadow-2xl mb-8 hover:scale-105 transition-transform duration-500"
             />
             <p className="text-blue-400 font-bold tracking-[0.3em] text-[11px] uppercase">
               IFRAG - Israel Fungicide Resistance Action Group

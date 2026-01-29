@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="fieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4ade80;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#166534;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="1" dy="1" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/>
+      </feComponentTransfer>
+      <feMerge> 
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/> 
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Group all elements and center them -->
+  <g transform="translate(50, 20)">
+    
+    <!-- Greenhouse -->
+    <path d="M50,150 L50,100 L150,40 L250,100 L250,150" fill="none" stroke="#1e293b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M50,100 L250,100" fill="none" stroke="#1e293b" stroke-width="4"/>
+    <path d="M150,40 L150,150" fill="none" stroke="#1e293b" stroke-width="4"/>
+    <path d="M100,70 L100,150" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,5"/>
+    <path d="M200,70 L200,150" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,5"/>
+
+    <!-- Field Rows (Wavy lines at bottom) -->
+    <path d="M20,180 Q80,160 150,180 T280,180" fill="none" stroke="url(#fieldGrad)" stroke-width="8" stroke-linecap="round" />
+    <path d="M10,200 Q70,180 140,200 T290,200" fill="none" stroke="url(#fieldGrad)" stroke-width="8" stroke-linecap="round" opacity="0.8"/>
+    <path d="M30,220 Q90,200 160,220 T270,220" fill="none" stroke="url(#fieldGrad)" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+
+    <!-- Petri Dish (Overlaying the center) -->
+    <g transform="translate(100, 110)" filter="url(#shadow)">
+      <!-- Dish Bottom -->
+      <ellipse cx="50" cy="20" rx="60" ry="25" fill="#f1f5f9" stroke="#334155" stroke-width="4"/>
+      <!-- Agar Content -->
+      <ellipse cx="50" cy="20" rx="54" ry="20" fill="#bfdbfe" opacity="0.6"/>
+      <!-- Dots (Colonies) -->
+      <circle cx="30" cy="20" r="4" fill="#15803d"/>
+      <circle cx="50" cy="15" r="5" fill="#15803d"/>
+      <circle cx="70" cy="25" r="3" fill="#15803d"/>
+      <circle cx="60" cy="30" r="4" fill="#15803d"/>
+      <!-- Dish Lid Reflection -->
+      <path d="M20,15 Q50,0 80,15" fill="none" stroke="white" stroke-width="3" opacity="0.8"/>
+    </g>
+
+    <!-- Text -->
+    <text x="150" y="270" font-family="Arial, sans-serif" font-weight="900" font-size="48" text-anchor="middle" fill="#0f172a" letter-spacing="2">ON-LAB</text>
+  </g>
+</svg>

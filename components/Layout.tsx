@@ -166,7 +166,8 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
 
           <footer className="mt-8 md:mt-12 py-6 md:py-8 border-t border-slate-200 text-center">
-            <p className="text-[10px] md:text-xs text-slate-400">© 2026 ON-LAB-IL - הפורטל הלאומי לאיגוד המידע לעמידות לפונגצידים. כל הזכויות שמורות.</p>
+            <p className="text-[10px] md:text-xs text-slate-400 mb-1">© 2026 ON-LAB-IL - הפורטל הלאומי לאיגוד המידע לעמידות לפונגצידים. כל הזכויות שמורות.</p>
+            <p className="text-[10px] md:text-xs text-slate-400 font-medium">יוצר המערכת: אוהד נוריאל ohad.agri@gmail.com</p>
           </footer>
         </main>
       </div>
