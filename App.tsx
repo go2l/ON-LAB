@@ -13,6 +13,7 @@ import { BioshieldProvider, useBioshield } from './context/BioshieldContext';
 
 import { LandingPage } from './components/LandingPage';
 import { ReportsDashboard } from './components/ReportsDashboard';
+import { GuidelinesPage } from './components/GuidelinesPage';
 
 function AppContent() {
   const {
@@ -33,6 +34,10 @@ function AppContent() {
       <div className="h-full">
         {activeView === 'landing' && (
           <LandingPage onEnter={() => setView('map')} />
+        )}
+
+        {activeView === 'guidelines' && (
+          <GuidelinesPage onBack={() => setView('map')} />
         )}
 
         {activeView === 'map' && (

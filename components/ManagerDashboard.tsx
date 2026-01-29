@@ -310,11 +310,13 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
 
           <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[32px] p-8 text-white shadow-lg shadow-blue-100 relative overflow-hidden group">
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-700"></div>
-            <h3 className="font-black text-xl mb-4 relative z-10">הנחיות ומסמכים</h3>
+            <h3 className="font-black text-xl mb-4 relative z-10">הנחיות</h3>
             <p className="text-sm text-blue-50 leading-relaxed mb-6 relative z-10 opacity-90">
-              לצפייה בנהלי דגימה, מדריכי התחברות לממשקי המעבדה ועדכוני אבטחה של פורטל איגוד המידע.
+              לצפייה בנהלי דגימה ומדריכי התחברות לממשקי המעבדה.
             </p>
-            <button className="bg-white/20 hover:bg-white/30 text-white font-bold py-3 px-6 rounded-2xl w-full transition-all text-sm backdrop-blur-md border border-white/20 relative z-10">
+            <button
+              onClick={() => setView('guidelines')}
+              className="bg-white/20 hover:bg-white/30 text-white font-bold py-3 px-6 rounded-2xl w-full transition-all text-sm backdrop-blur-md border border-white/20 relative z-10">
               מרכז הידע וההנחיות
             </button>
           </div>

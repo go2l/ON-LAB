@@ -1,4 +1,3 @@
-import React from 'react';
 import { ShieldCheck, ChevronRight, Lock } from 'lucide-react';
 
 interface LandingPageProps {
