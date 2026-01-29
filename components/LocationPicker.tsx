@@ -34,6 +34,15 @@ const LeafletIconFix = () => {
 };
 
 export const LocationPicker: React.FC<LocationPickerProps> = ({ initialLat, initialLng, onLocationSelect }) => {
+    // Component to update map center when props change
+    const UpdateMapCenter = ({ center }: { center: [number, number] }) => {
+        const map = useMapEvents({});
+        useEffect(() => {
+            map.flyTo(center, 13);
+        }, [center, map]);
+        return null;
+    };
+
     // Local state for the marker to show immediate feedback
     const [position, setPosition] = useState<{ lat: number; lng: number }>({ lat: initialLat, lng: initialLng });
 
@@ -56,6 +65,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ initialLat, init
                 style={{ height: '100%', width: '100%' }}
                 scrollWheelZoom={false} // Disable scroll zoom to prevent accidental page scrolling
             >
+                <UpdateMapCenter center={[initialLat, initialLng]} />
                 <LayersControl position="topleft">
                     <LayersControl.BaseLayer checked name="מפה רגילה">
                         <TileLayer

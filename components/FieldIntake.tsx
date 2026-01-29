@@ -14,6 +14,7 @@ import {
   PesticideTreatment,
   SampleStatus
 } from '../types';
+import { CITIES, City } from '../cities';
 import {
   ClipboardCheck,
   MapPin,
@@ -95,6 +96,21 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
       ...prev,
       pesticideHistory: prev.pesticideHistory.filter(p => p.id !== id)
     }));
+  };
+
+  const handleMunicipalityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const city = CITIES.find(c => c.name === val);
+
+    if (city) {
+      setFormData(prev => ({
+        ...prev,
+        municipality: val,
+        coordinates: { lat: city.lat, lng: city.lng }
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, municipality: val }));
+    }
   };
 
   const handleGetGPS = () => {
@@ -355,12 +371,16 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
 
               <FormGroup label="יישוב / מועצה" icon={<Navigation className="w-4 h-4 ml-2 text-slate-500" />}>
                 <input
+                  list="cities"
                   type="text"
                   value={formData.municipality}
-                  onChange={(e) => setFormData({ ...formData, municipality: e.target.value })}
+                  onChange={handleMunicipalityChange}
                   className="input-clean"
-                  placeholder="שם היישוב"
+                  placeholder="בחר יישוב מהרשימה"
                 />
+                <datalist id="cities">
+                  {CITIES.map(c => <option key={c.name} value={c.name} />)}
+                </datalist>
               </FormGroup>
             </div>
 
@@ -373,6 +393,9 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
                   className="input-clean"
                   placeholder="מזהה חלקה פנימי"
                 />
+                <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                  למלא כך שיהיה ניתן להגיע לאותה חלקה לדגימה חוזרת במידת הצורך.
+                </p>
               </FormGroup>
 
               <FormGroup label="מיקום GPS" icon={<Navigation className="w-4 h-4 ml-2 text-red-500" />}>
@@ -390,6 +413,9 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
                       <Navigation className="w-5 h-5" />
                     </button>
                   </div>
+                  <p className="text-[10px] text-slate-400 font-medium leading-tight">
+                    ניתן לדקור מיקום נוכחי באמצעות לחצן ייעודי או לבחור מיקום ידנית על גבי המפה.
+                  </p>
 
                   {/* Manual Map Picker */}
                   <div className="mt-2">
