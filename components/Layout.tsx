@@ -134,6 +134,11 @@ export const Layout: React.FC<LayoutProps> = ({
                 className="w-full bg-slate-50 border-none rounded-xl py-2.5 pr-10 text-sm focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
               />
             </div>
+            <div className="hidden lg:flex items-center gap-2 mr-4">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pt-0.5">Israel Fungicide Resistance Action Group</p>
+              <span className="text-slate-300">|</span>
+              <h1 className="text-sm font-black text-slate-700 tracking-wide">IFRAG</h1>
+            </div>
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-4 space-x-reverse">

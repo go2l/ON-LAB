@@ -26,7 +26,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
               className="w-48 md:w-64 h-auto drop-shadow-xl mb-6 hover:scale-105 transition-transform duration-500"
             />
             <p className="text-blue-400 font-bold tracking-[0.3em] text-[11px] uppercase">
-              Israel Information Association Portal
+              IFRAG - Israel Fungicide Resistance Action Group
             </p>
           </div>
         </div>
