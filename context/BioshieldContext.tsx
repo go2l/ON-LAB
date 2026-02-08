@@ -68,19 +68,23 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
     const addSample = async (newSampleData: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => {
         // Generate Sequential Semantic ID
         const pathogen = newSampleData.pathogen || 'Unknown';
-        // Get first 2 letters, uppercase. If Hebrew/Symbols, falling back might be needed, but assuming English per requirements "Botrytis -> BO"
-        // If names are Hebrew, we might need a mapping. Assuming English for now based on examples.
-        // Actually, let's just take the first 2 chars.
-        const prefix = pathogen.substring(0, 2).toUpperCase();
+
+        let prefix = 'UN';
+        if (pathogen.includes('Botrytis')) prefix = 'B';
+        else if (pathogen.includes('Podosphaera')) prefix = 'P';
+        else if (pathogen.includes('Alternaria')) prefix = 'A';
+        else prefix = pathogen.substring(0, 1).toUpperCase();
 
         // Find highest existing number for this prefix
         const existingIds = samples
             .map(s => s.internalId)
-            .filter(id => id.startsWith(prefix));
+            .filter(id => id && id.startsWith(prefix));
 
         let maxNum = 0;
         existingIds.forEach(id => {
-            const numPart = parseInt(id.substring(2));
+            // Remove prefix which is 1 char (or 2 if UN)
+            const numPartStr = id.replace(prefix, '');
+            const numPart = parseInt(numPartStr);
             if (!isNaN(numPart) && numPart > maxNum) {
                 maxNum = numPart;
             }
@@ -111,7 +115,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
 
         try {
             const docRef = await addDoc(collection(db, 'samples'), newSample);
-            return docRef.id;
+            return newInternalId; // Return the short semantic ID
         } catch (e) {
             console.error("Error adding document: ", e);
             throw e;
