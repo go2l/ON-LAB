@@ -3,9 +3,9 @@ import { MapContainer, TileLayer, Marker, Popup, LayersControl, LayerGroup, useM
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Sample, ResistanceCategory, SensitivityTest } from '../types';
+import { Sample, ResistanceCategory, SensitivityTest, PesticideTreatment, ApplicationMethod } from '../types';
 import { RESISTANCE_COLORS } from '../constants';
-import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck, Trash2, List } from 'lucide-react';
+import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck, Trash2, List, Edit2, Save, Plus, SprayCan } from 'lucide-react';
 import { useBioshield } from '../context/BioshieldContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -215,11 +215,23 @@ const ClusterLayer: React.FC<{
 
 export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, results }) => {
   const navigate = useNavigate();
-  const { selectSample, deleteSample } = useBioshield();
+  const { selectSample, deleteSample, updateSample } = useBioshield();
   const { isAdmin } = useAuth();
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPathogen, setFilterPathogen] = useState('ALL');
+
+  // Edit Mode State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<Sample>>({});
+
+  // Pesticide Form State
+  const [newPesticide, setNewPesticide] = useState<Partial<PesticideTreatment>>({
+    material: '',
+    dosage: '',
+    method: ApplicationMethod.SPRAYING,
+    date: new Date().toISOString().split('T')[0]
+  });
 
   const filteredSamples = samples.filter(s => {
     const matchesSearch = s.internalId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -233,6 +245,79 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
   ).length;
 
   const resistanceRate = samples.length > 0 ? ((totalResistant / samples.length) * 100).toFixed(1) : "0";
+
+  // Reset edit state when sample selection changes
+  useEffect(() => {
+    setIsEditing(false);
+    setEditFormData({});
+  }, [selectedSample?.id]);
+
+  const handleStartEdit = () => {
+    if (selectedSample) {
+      setEditFormData({ ...selectedSample });
+      setIsEditing(true);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (selectedSample && updateSample) {
+      try {
+        await updateSample(selectedSample.id, editFormData);
+        // Update local selectedSample to match new data so UI reflects changes immediately
+        setSelectedSample({ ...selectedSample, ...editFormData } as Sample);
+        setIsEditing(false);
+        alert('עודכן בהצלחה');
+      } catch (e) {
+        alert('שגיאה בעדכון: ' + e);
+      }
+    }
+  };
+
+  const handleAddPesticide = async () => {
+    if (!selectedSample || !updateSample) return;
+    if (!newPesticide.material || !newPesticide.dosage) {
+      alert('חובה למלא שם חומר ומינון');
+      return;
+    }
+
+    const treatment: PesticideTreatment = {
+      id: Date.now().toString(),
+      material: newPesticide.material,
+      dosage: newPesticide.dosage,
+      method: newPesticide.method || ApplicationMethod.SPRAYING,
+      date: newPesticide.date || new Date().toISOString()
+    };
+
+    const updatedHistory = [...(selectedSample.pesticideHistory || []), treatment];
+
+    try {
+      await updateSample(selectedSample.id, { pesticideHistory: updatedHistory });
+      // Update local state
+      setSelectedSample({ ...selectedSample, pesticideHistory: updatedHistory });
+      // Reset form
+      setNewPesticide({
+        material: '',
+        dosage: '',
+        method: ApplicationMethod.SPRAYING,
+        date: new Date().toISOString().split('T')[0]
+      });
+    } catch (e) {
+      alert('שגיאה בהוספת טיפול: ' + e);
+    }
+  };
+
+  const handleDeletePesticide = async (treatmentId: string) => {
+    if (!selectedSample || !updateSample) return;
+    if (!window.confirm('האם למחוק טיפול זה?')) return;
+
+    const updatedHistory = selectedSample.pesticideHistory?.filter(t => t.id !== treatmentId) || [];
+    try {
+      await updateSample(selectedSample.id, { pesticideHistory: updatedHistory });
+      setSelectedSample({ ...selectedSample, pesticideHistory: updatedHistory });
+    } catch (e) {
+      alert('שגיאה במחיקת טיפול: ' + e);
+    }
+  };
 
   return (
     <div className="space-y-8 animate-fade-in" dir="rtl">
@@ -336,7 +421,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
               </LayersControl.BaseLayer>
             </LayersControl>
 
-            {/* Custom Clustering Logic in separate component to access map context */}
+            {/* Custom Clustering Logic */}
             <ClusterLayer
               samples={filteredSamples}
               results={results}
@@ -354,7 +439,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
           </MapContainer>
 
           {selectedSample && (
-            <div className="absolute bottom-6 right-6 left-6 md:left-auto md:w-96 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl animate-fade-in z-[1000] overflow-hidden">
+            <div className="absolute bottom-6 right-6 left-6 md:left-auto md:w-96 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl animate-fade-in z-[1000] overflow-hidden max-h-[80vh] overflow-y-auto scrollbar-thin">
               <div className="absolute top-0 right-0 left-0 h-1.5" style={{ backgroundColor: results[selectedSample.id] ? RESISTANCE_COLORS[getWorstResistance(results[selectedSample.id])!] || '#cbd5e1' : '#cbd5e1' }}></div>
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -363,29 +448,167 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                 </div>
                 <div className="flex items-center gap-2">
                   {isAdmin && (
-                    <button
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this sample?')) {
-                          deleteSample(selectedSample.id);
-                          setSelectedSample(null);
-                        }
-                      }}
-                      className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-colors"
-                      title="מחיקת דגימה"
-                    >
-                      <Trash2 className="w-5 h-5" />
+                    isEditing ? (
+                      <>
+                        <button
+                          onClick={handleSaveEdit}
+                          className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl transition-colors"
+                          title="שמור שינויים"
+                        >
+                          <Save className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => { setIsEditing(false); setEditFormData({}); }}
+                          className="p-2 bg-slate-50 text-slate-400 hover:bg-slate-100 rounded-xl transition-colors"
+                          title="ביטול"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={handleStartEdit}
+                          className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-500 rounded-xl transition-colors"
+                          title="עריכת פרטים (Admin)"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this sample?')) {
+                              deleteSample(selectedSample.id);
+                              setSelectedSample(null);
+                            }
+                          }}
+                          className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-colors"
+                          title="מחיקת דגימה"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => setSelectedSample(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                          <X className="w-5 h-5 text-slate-400" />
+                        </button>
+                      </>
+                    )
+                  )}
+                  {!isAdmin && (
+                    <button onClick={() => setSelectedSample(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                      <X className="w-5 h-5 text-slate-400" />
                     </button>
                   )}
-                  <button onClick={() => setSelectedSample(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                    <X className="w-5 h-5 text-slate-400" />
-                  </button>
                 </div>
               </div>
 
               <div className="space-y-4 mb-8">
-                <DetailRow label="סוג גידול" value={selectedSample.crop} />
-                <DetailRow label="פתוגן מטרה" value={selectedSample.pathogen} />
-                <DetailRow label="תאריך דגימה" value={new Date(selectedSample.date).toLocaleDateString('he-IL')} />
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-400">אזור</label>
+                      <input
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700"
+                        value={editFormData.region || ''}
+                        onChange={e => setEditFormData({ ...editFormData, region: e.target.value as any })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-400">גידול</label>
+                      <input
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700"
+                        value={editFormData.crop || ''}
+                        onChange={e => setEditFormData({ ...editFormData, crop: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-400">פתוגן</label>
+                      <input
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700"
+                        value={editFormData.pathogen || ''}
+                        onChange={e => setEditFormData({ ...editFormData, pathogen: e.target.value as any })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-400">תאריך</label>
+                      <input
+                        type="date"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700"
+                        value={editFormData.date?.split('T')[0] || ''}
+                        onChange={e => setEditFormData({ ...editFormData, date: new Date(e.target.value).toISOString() })}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <DetailRow label="סוג גידול" value={selectedSample.crop} />
+                    <DetailRow label="פתוגן מטרה" value={selectedSample.pathogen} />
+                    <DetailRow label="תאריך דגימה" value={new Date(selectedSample.date).toLocaleDateString('he-IL')} />
+                  </>
+                )}
+
+                {/* Pesticide History - ONLY ADMIN */}
+                {isAdmin && (
+                  <div className="pt-4 border-t border-slate-100">
+                    <h5 className="font-bold text-slate-700 mb-3 flex items-center">
+                      <SprayCan className="w-4 h-4 ml-2 text-green-600" />
+                      היסטוריית טיפולים שתועדה
+                    </h5>
+
+                    {/* List */}
+                    <div className="space-y-2 mb-4">
+                      {selectedSample.pesticideHistory && selectedSample.pesticideHistory.length > 0 ? (
+                        selectedSample.pesticideHistory.map(ph => (
+                          <div key={ph.id} className="bg-green-50/50 p-2 rounded-lg border border-green-100 flex justify-between items-center group">
+                            <div>
+                              <div className="font-bold text-slate-700 text-sm">{ph.material}</div>
+                              <div className="text-xs text-slate-500">
+                                {new Date(ph.date).toLocaleDateString('he-IL')} • {ph.dosage}
+                              </div>
+                            </div>
+                            {isEditing && (
+                              <button
+                                onClick={() => handleDeletePesticide(ph.id)}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:text-red-600 transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-xs text-slate-400 italic">לא תועדו טיפולים</div>
+                      )}
+                    </div>
+
+                    {/* Add Form (Only visible in Edit Mode) */}
+                    {isEditing && (
+                      <div className="bg-slate-50 p-3 rounded-xl border border-dashed border-slate-300">
+                        <div className="text-xs font-bold text-slate-500 mb-2">הוספת טיפול חדש:</div>
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <input
+                            placeholder="שם חומר"
+                            className="text-xs p-1 rounded border border-slate-200"
+                            value={newPesticide.material}
+                            onChange={e => setNewPesticide({ ...newPesticide, material: e.target.value })}
+                          />
+                          <input
+                            placeholder="מינון"
+                            className="text-xs p-1 rounded border border-slate-200"
+                            value={newPesticide.dosage}
+                            onChange={e => setNewPesticide({ ...newPesticide, dosage: e.target.value })}
+                          />
+                        </div>
+                        <button
+                          onClick={handleAddPesticide}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-1.5 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                        >
+                          <Plus className="w-3 h-3 ml-1" />
+                          הוסף טיפול
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
 
                 <div className="pt-4 border-t border-slate-100">
                   <span className="text-sm font-bold text-slate-500 block mb-2">תוצאות בדיקה:</span>

@@ -19,6 +19,7 @@ interface BioshieldContextType {
     setView: (view: string) => void;
     addSample: (newSample: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => Promise<string>;
     updateStatus: (id: string, status: SampleStatus) => Promise<void>;
+    updateSample: (id: string, data: Partial<Sample>) => Promise<void>;
     addResult: (sampleId: string, results: SensitivityTest[], newStatus?: SampleStatus) => Promise<void>;
     selectedSampleId: string | null;
     selectSample: (id: string | null) => void;
@@ -272,6 +273,16 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
         }
     };
 
+    const updateSample = async (id: string, data: Partial<Sample>) => {
+        try {
+            const sampleRef = doc(db, 'samples', id);
+            await updateDoc(sampleRef, data);
+        } catch (e) {
+            console.error("Error updating sample: ", e);
+            throw e;
+        }
+    };
+
     return (
         <BioshieldContext.Provider value={{
             samples,
@@ -280,6 +291,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             setView: setActiveView,
             addSample,
             updateStatus,
+            updateSample,
             addResult,
             selectSample,
             toggleArchive,
