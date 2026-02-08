@@ -19,7 +19,7 @@ interface BioshieldContextType {
     setView: (view: string) => void;
     addSample: (newSample: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => Promise<string>;
     updateStatus: (id: string, status: SampleStatus) => Promise<void>;
-    addResult: (sampleId: string, results: SensitivityTest[]) => Promise<void>;
+    addResult: (sampleId: string, results: SensitivityTest[], newStatus?: SampleStatus) => Promise<void>;
     selectedSampleId: string | null;
     selectSample: (id: string | null) => void;
     toggleArchive: (id: string, isArchived: boolean) => Promise<void>;
@@ -69,16 +69,16 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
         console.log("Generating ID with NEW logic V2"); // Debug to confirm reload
         // Generate Sequential Semantic ID
         const pathogen = newSampleData.pathogen || 'Unknown';
-        
+
         let prefix = 'UN';
         if (pathogen.includes('Botrytis')) {
-             prefix = 'B';
+            prefix = 'B';
         } else if (pathogen.includes('Podosphaera')) {
-             prefix = 'P';
+            prefix = 'P';
         } else if (pathogen.includes('Alternaria')) {
-             prefix = 'A';
+            prefix = 'A';
         } else {
-             prefix = pathogen.substring(0, 1).toUpperCase();
+            prefix = pathogen.substring(0, 1).toUpperCase();
         }
 
         console.log(`Selected prefix for ${pathogen}: ${prefix}`);
@@ -87,7 +87,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
         const existingIds = samples
             .map(s => s.internalId)
             .filter(id => id && id.startsWith(prefix));
-        
+
         let maxNum = 0;
         existingIds.forEach(id => {
             // Remove prefix which is 1 char (or 2 if UN)
@@ -101,7 +101,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
         const nextNum = maxNum + 1;
         const newInternalId = `${prefix}${nextNum.toString().padStart(3, '0')}`;
         console.log(`Generated new ID: ${newInternalId}`);
-        
+
         const timestamp = new Date().toISOString();
 
         const initialEvent: SampleEvent = {
@@ -135,7 +135,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
     const updateStatus = async (id: string, status: SampleStatus) => {
         try {
             const sampleRef = doc(db, 'samples', id);
-            
+
             const newEvent: SampleEvent = {
                 id: `ev-${Date.now()}`,
                 timestamp: new Date().toISOString(),
@@ -176,10 +176,25 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
         }
     };
 
-    const addResult = async (sampleId: string, newResults: SensitivityTest[]) => {
+    const addResult = async (sampleId: string, newResults: SensitivityTest[], newStatus?: SampleStatus) => {
+        console.log(`[addResult] Starting for sample ${sampleId}`, { newResults, newStatus });
         try {
             const sample = samples.find(s => s.id === sampleId);
-            if (!sample) return;
+            if (!sample) {
+                console.error(`[addResult] Sample ${sampleId} not found locally`);
+                return;
+            }
+
+            // Sanitization Helper: Firestore hates 'undefined', use null or delete key
+            const sanitize = (obj: any): any => {
+                const newObj = { ...obj };
+                Object.keys(newObj).forEach(key => {
+                    if (newObj[key] === undefined) {
+                        newObj[key] = null; // or delete newObj[key]
+                    }
+                });
+                return newObj;
+            };
 
             const oldResults = sample.results || [];
             const oldResultsMap = new Map<string, SensitivityTest>(oldResults.map(r => [r.id, r]));
@@ -187,11 +202,15 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             const addedTests: SensitivityTest[] = [];
             const updatedTests: SensitivityTest[] = [];
 
-            newResults.forEach(newTest => {
+            // Sanitize results before processing
+            const sanitizedResults = newResults.map(r => sanitize(r) as SensitivityTest);
+
+            sanitizedResults.forEach(newTest => {
                 const oldTest = oldResultsMap.get(newTest.id);
                 if (!oldTest) {
                     addedTests.push(newTest);
                 } else {
+                    // Compare logic...
                     const hasChanged =
                         oldTest.material !== newTest.material ||
                         oldTest.dosage !== newTest.dosage ||
@@ -220,15 +239,36 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                 description: `עדכון תוצאה קיים: ${test.material} - ${test.dosage} PPM - ${test.category}`
             }));
 
-            const updatedHistory = [...sample.history, ...addedEvents, ...updatedEvents];
+            // Sanitize events too
+            const sanitizedEvents = [...addedEvents, ...updatedEvents].map(e => sanitize(e) as SampleEvent);
 
-            const sampleRef = doc(db, 'samples', sampleId);
-            await updateDoc(sampleRef, {
-                results: newResults,
+            let updatedHistory = [...(sample.history || []), ...sanitizedEvents];
+
+            const updates: any = {
+                results: sanitizedResults, // Use sanitized
                 history: updatedHistory,
-            });
+            };
+
+            if (newStatus && newStatus !== sample.status) {
+                updates.status = newStatus;
+                const statusEvent: SampleEvent = {
+                    id: `ev-${Date.now()}-status`,
+                    timestamp: new Date().toISOString(),
+                    type: newStatus === SampleStatus.RECEIVED_LAB ? 'LAB_CONFIRMATION' : 'STATUS_CHANGE',
+                    user: 'צוות מעבדה',
+                    description: `סטטוס שונה ל: ${newStatus} (עם הזנת תוצאות)`
+                };
+                updatedHistory.push(sanitize(statusEvent)); // Sanitize status event
+                updates.history = updatedHistory;
+            }
+
+            console.log(`[addResult] Writing to Firestore for ${sampleId}`, updates);
+            const sampleRef = doc(db, 'samples', sampleId);
+            await updateDoc(sampleRef, updates);
+            console.log(`[addResult] Successfully updated ${sampleId}`);
         } catch (e) {
             console.error("Error adding results: ", e);
+            alert("Error saving results: " + e); // Temporary alert for debugging
         }
     };
 

@@ -21,7 +21,7 @@ import {
 interface LabDashboardProps {
   samples: Sample[];
   onUpdateStatus: (id: string, status: SampleStatus) => void;
-  onSaveResult: (sampleId: string, result: { id: string, material: string, dosage: string, category: ResistanceCategory }[]) => void;
+  onSaveResult: (sampleId: string, result: { id: string, material: string, dosage: string, category: ResistanceCategory }[], newStatus?: SampleStatus) => void;
 }
 
 export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateStatus, onSaveResult }) => {
@@ -112,8 +112,9 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
 
   const handleSaveResult = () => {
     if (selectedSample && sensitivityTests.length > 0) {
-      onSaveResult(selectedSample.id, sensitivityTests);
-      onUpdateStatus(selectedSample.id, SampleStatus.RESULTS_ENTERED);
+      // Use atomic update: Save results AND update status in one go
+      onSaveResult(selectedSample.id, sensitivityTests, SampleStatus.RESULTS_ENTERED);
+      // Removed separate onUpdateStatus call to prevent race condition
       alert("היסטוריית הבדיקות נשמרה בהצלחה.");
     } else {
       alert("יש להזין לפחות תוצאת בדיקה אחת לפני השמירה.");
