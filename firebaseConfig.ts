@@ -13,6 +13,14 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+if (!firebaseConfig.apiKey) {
+    console.error('Firebase configuration is missing. Please check your environment variables.');
+    // Check if we are in a browser environment to safely alert
+    if (typeof window !== 'undefined') {
+        alert('CRITICAL ERROR: Firebase configuration is missing. The app cannot start. Please check the console for details.');
+    }
+}
+
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
