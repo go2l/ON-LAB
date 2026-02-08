@@ -100,6 +100,7 @@ export interface Sample {
   priority?: string;
   pesticideHistory: PesticideTreatment[];
   history: SampleEvent[]; // New history audit trail
+  results?: SensitivityTest[]; // Integrated lab results provided by Firestore
 }
 
 export interface Isolate {

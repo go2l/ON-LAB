@@ -1,34 +1,72 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import {
+    collection,
+    onSnapshot,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    doc,
+    query,
+    orderBy
+} from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 import { Sample, ResistanceCategory, SampleStatus, SampleEvent, SensitivityTest } from '../types';
-import { MOCK_SAMPLES } from '../constants';
 
 interface BioshieldContextType {
     samples: Sample[];
     results: Record<string, SensitivityTest[]>;
     activeView: string;
     setView: (view: string) => void;
-    addSample: (newSample: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => string;
-    updateStatus: (id: string, status: SampleStatus) => void;
-    addResult: (sampleId: string, results: SensitivityTest[]) => void;
+    addSample: (newSample: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => Promise<string>;
+    updateStatus: (id: string, status: SampleStatus) => Promise<void>;
+    addResult: (sampleId: string, results: SensitivityTest[]) => Promise<void>;
     selectedSampleId: string | null;
     selectSample: (id: string | null) => void;
-    toggleArchive: (id: string, isArchived: boolean) => void;
+    toggleArchive: (id: string, isArchived: boolean) => Promise<void>;
+    deleteSample: (id: string) => Promise<void>;
 }
 
 const BioshieldContext = createContext<BioshieldContextType | undefined>(undefined);
 
 export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [samples, setSamples] = useState<Sample[]>(MOCK_SAMPLES);
+    const [samples, setSamples] = useState<Sample[]>([]);
     const [results, setResults] = useState<Record<string, SensitivityTest[]>>({});
     const [activeView, setActiveView] = useState('landing');
     const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
+
+    // Real-time listener for samples
+    useEffect(() => {
+        const q = query(collection(db, 'samples'), orderBy('date', 'desc'));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedSamples: Sample[] = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as Sample));
+
+            setSamples(fetchedSamples);
+
+            // Extract results for backward compatibility with UI components expecting separate results map
+            const extractedResults: Record<string, SensitivityTest[]> = {};
+            fetchedSamples.forEach(s => {
+                if (s.results) {
+                    extractedResults[s.id] = s.results;
+                }
+            });
+            setResults(extractedResults);
+        }, (error) => {
+            console.error("Error fetching samples: ", error);
+        });
+
+        return () => unsubscribe();
+    }, []);
 
     const selectSample = (id: string | null) => {
         setSelectedSampleId(id);
     };
 
-    const addSample = (newSampleData: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => {
-        const newId = `BS-${Math.floor(Math.random() * 90000) + 10000}`;
+    const addSample = async (newSampleData: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => {
+        const newInternalId = `BS-${Math.floor(Math.random() * 90000) + 10000}`;
         const timestamp = new Date().toISOString();
 
         const initialEvent: SampleEvent = {
@@ -39,95 +77,135 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             description: 'דגימה נוצרה בשטח'
         };
 
-        const newSample: Sample = {
+        const newSample: Omit<Sample, 'id'> = {
             ...newSampleData,
-            id: `s-${Date.now()}`,
-            internalId: newId,
+            internalId: newInternalId,
             status: newSampleData.status || SampleStatus.PENDING_LAB_CONFIRMATION,
             isArchived: false,
             history: [initialEvent],
-            pesticideHistory: newSampleData.pesticideHistory || []
+            pesticideHistory: newSampleData.pesticideHistory || [],
+            results: []
         };
-        setSamples(prev => [newSample, ...prev]);
-        return newId;
+
+        try {
+            const docRef = await addDoc(collection(db, 'samples'), newSample);
+            return docRef.id;
+        } catch (e) {
+            console.error("Error adding document: ", e);
+            throw e;
+        }
     };
 
-    const updateStatus = (id: string, status: SampleStatus) => {
-        setSamples(prev => prev.map(s => {
-            if (s.id === id) {
-                const newEvent: SampleEvent = {
-                    id: `ev-${Date.now()}`,
-                    timestamp: new Date().toISOString(),
-                    type: status === SampleStatus.RECEIVED_LAB ? 'LAB_CONFIRMATION' : 'STATUS_CHANGE',
-                    user: 'צוות מעבדה',
-                    description: `סטטוס שונה ל: ${status}`
-                };
-                return { ...s, status, history: [...s.history, newEvent] };
-            }
-            return s;
-        }));
+    const updateStatus = async (id: string, status: SampleStatus) => {
+        try {
+            const sampleRef = doc(db, 'samples', id);
+            // We need to fetch current history to append, or use arrayUnion if strict about atomicity.
+            // For simplicity and to include dynamic fields in event, we'll assume we have the latest sample state or just use arrayUnion with a constructed object.
+            // However, arrayUnion with complex objects like SampleEvent might need exact matches for removal, but addition is fine.
+            // Better to read the current sample from local state to get current history? 
+            // Ideally use transaction, but let's stick to updateDoc with current state logic for now or just trust local state?
+            // Actually, we can just fetch the doc or use arrayUnion.
+
+            const newEvent: SampleEvent = {
+                id: `ev-${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                type: status === SampleStatus.RECEIVED_LAB ? 'LAB_CONFIRMATION' : 'STATUS_CHANGE',
+                user: 'צוות מעבדה', // In a real app, pass actual user
+                description: `סטטוס שונה ל: ${status}`
+            };
+
+            // Using Firestore arrayUnion is cleaner if possible, but let's read-modify-write for safety with history order if needed,
+            // or just use arrayUnion. Firestore arrayUnion adds to end.
+            const sample = samples.find(s => s.id === id);
+            if (!sample) return;
+
+            const updatedHistory = [...sample.history, newEvent];
+
+            await updateDoc(sampleRef, {
+                status,
+                history: updatedHistory
+            });
+        } catch (e) {
+            console.error("Error updating status: ", e);
+            throw e; // Propagate error so UI can show toast if we had one
+        }
     };
 
-    const toggleArchive = (id: string, isArchived: boolean) => {
-        setSamples(prev => prev.map(s => {
-            if (s.id === id) {
-                return { ...s, isArchived };
-            }
-            return s;
-        }));
+    const toggleArchive = async (id: string, isArchived: boolean) => {
+        try {
+            const sampleRef = doc(db, 'samples', id);
+            await updateDoc(sampleRef, { isArchived });
+        } catch (e) {
+            console.error("Error toggling archive: ", e);
+        }
     };
 
-    const addResult = (sampleId: string, newResults: SensitivityTest[]) => {
-        const oldResults = results[sampleId] || [];
-        const oldResultsMap = new Map(oldResults.map(r => [r.id, r]));
+    const deleteSample = async (id: string) => {
+        try {
+            await deleteDoc(doc(db, 'samples', id));
+        } catch (e) {
+            console.error("Error deleting sample: ", e);
+        }
+    };
 
-        const addedTests: SensitivityTest[] = [];
-        const updatedTests: SensitivityTest[] = [];
+    const addResult = async (sampleId: string, newResults: SensitivityTest[]) => {
+        try {
+            const sample = samples.find(s => s.id === sampleId);
+            if (!sample) return;
 
-        newResults.forEach(newTest => {
-            const oldTest = oldResultsMap.get(newTest.id);
-            if (!oldTest) {
-                addedTests.push(newTest);
-            } else {
-                // Check if meaningful fields changed
-                const hasChanged =
-                    oldTest.material !== newTest.material ||
-                    oldTest.dosage !== newTest.dosage ||
-                    oldTest.category !== newTest.category ||
-                    oldTest.notes !== newTest.notes;
+            const oldResults = sample.results || [];
+            const oldResultsMap = new Map<string, SensitivityTest>(oldResults.map(r => [r.id, r]));
 
-                if (hasChanged) {
-                    updatedTests.push(newTest);
+            const addedTests: SensitivityTest[] = [];
+            const updatedTests: SensitivityTest[] = [];
+
+            newResults.forEach(newTest => {
+                const oldTest = oldResultsMap.get(newTest.id);
+                if (!oldTest) {
+                    addedTests.push(newTest);
+                } else {
+                    const hasChanged =
+                        oldTest.material !== newTest.material ||
+                        oldTest.dosage !== newTest.dosage ||
+                        oldTest.category !== newTest.category ||
+                        oldTest.notes !== newTest.notes;
+
+                    if (hasChanged) {
+                        updatedTests.push(newTest);
+                    }
                 }
-            }
-        });
+            });
 
-        setResults(prev => ({ ...prev, [sampleId]: newResults }));
+            // If nothing changed, we might still want to save the newResults array as the source of truth
+            // But let's build the history events first.
 
-        if (addedTests.length === 0 && updatedTests.length === 0) return;
+            const addedEvents: SampleEvent[] = addedTests.map(test => ({
+                id: `ev-${Date.now()}-add-${test.id}`,
+                timestamp: new Date().toISOString(),
+                type: 'RESULT_ADDED',
+                user: test.user || 'חוקר מעבדה',
+                description: `בדיקה נוספה: ${test.material} - ${test.dosage} PPM - ${test.category}`
+            }));
 
-        setSamples(prev => prev.map(s => {
-            if (s.id === sampleId) {
-                const addedEvents: SampleEvent[] = addedTests.map(test => ({
-                    id: `ev-${Date.now()}-add-${test.id}`,
-                    timestamp: new Date().toISOString(),
-                    type: 'RESULT_ADDED',
-                    user: test.user || 'חוקר מעבדה',
-                    description: `בדיקה נוספה: ${test.material} - ${test.dosage} PPM - ${test.category}`
-                }));
+            const updatedEvents: SampleEvent[] = updatedTests.map(test => ({
+                id: `ev-${Date.now()}-upd-${test.id}`,
+                timestamp: new Date().toISOString(),
+                type: 'RESULT_UPDATED',
+                user: test.user || 'חוקר מעבדה',
+                description: `עדכון תוצאה קיים: ${test.material} - ${test.dosage} PPM - ${test.category}`
+            }));
 
-                const updatedEvents: SampleEvent[] = updatedTests.map(test => ({
-                    id: `ev-${Date.now()}-upd-${test.id}`,
-                    timestamp: new Date().toISOString(),
-                    type: 'RESULT_UPDATED',
-                    user: test.user || 'חוקר מעבדה',
-                    description: `עדכון תוצאה קיים: ${test.material} - ${test.dosage} PPM - ${test.category}`
-                }));
+            const updatedHistory = [...sample.history, ...addedEvents, ...updatedEvents];
 
-                return { ...s, history: [...s.history, ...addedEvents, ...updatedEvents] };
-            }
-            return s;
-        }));
+            const sampleRef = doc(db, 'samples', sampleId);
+            await updateDoc(sampleRef, {
+                results: newResults,
+                history: updatedHistory,
+                // If results are added, meaningful status change? Maybe not automatically.
+            });
+        } catch (e) {
+            console.error("Error adding results: ", e);
+        }
     };
 
     return (
@@ -139,9 +217,9 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             addSample,
             updateStatus,
             addResult,
-            selectedSampleId,
             selectSample,
-            toggleArchive
+            toggleArchive,
+            deleteSample
         }}>
             {children}
         </BioshieldContext.Provider>

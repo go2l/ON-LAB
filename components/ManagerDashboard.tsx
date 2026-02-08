@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Sample, ResistanceCategory, SensitivityTest } from '../types';
 import { RESISTANCE_COLORS } from '../constants';
-import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck } from 'lucide-react';
+import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck, Trash2 } from 'lucide-react';
 import { useBioshield } from '../context/BioshieldContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -60,7 +60,7 @@ const getWorstResistance = (tests: SensitivityTest[] | undefined): ResistanceCat
 
 export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, results }) => {
   const navigate = useNavigate();
-  const { selectSample } = useBioshield();
+  const { selectSample, deleteSample } = useBioshield();
   const { isAdmin } = useAuth(); // Get admin status
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -212,9 +212,25 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                   <h4 className="font-black text-xl text-slate-800">{selectedSample.internalId}</h4>
                   <p className="text-sm font-bold text-blue-600">{selectedSample.region}</p>
                 </div>
-                <button onClick={() => setSelectedSample(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                  <X className="w-5 h-5 text-slate-400" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to delete this sample?')) {
+                          deleteSample(selectedSample.id);
+                          setSelectedSample(null);
+                        }
+                      }}
+                      className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-colors"
+                      title="מחיקת דגימה"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button onClick={() => setSelectedSample(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4 mb-8">

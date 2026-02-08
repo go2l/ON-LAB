@@ -16,16 +16,19 @@ import {
     Calendar,
     Activity,
     ChevronRight,
-    ClipboardList
+    ClipboardList,
+    Trash2
 } from 'lucide-react';
 import { useBioshield } from '../context/BioshieldContext';
+import { useAuth } from '../context/AuthContext';
 
 interface SampleListProps {
     samples: Sample[];
 }
 
 export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
-    const { selectedSampleId, selectSample } = useBioshield();
+    const { selectedSampleId, selectSample, deleteSample } = useBioshield();
+    const { isAdmin } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [filterPathogen, setFilterPathogen] = useState<string>('ALL');
@@ -251,6 +254,20 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                         </h3>
                                     </div>
                                     <div className="flex gap-3">
+                                        {isAdmin && (
+                                            <button
+                                                onClick={() => {
+                                                    if (window.confirm('Are you sure you want to delete this sample? This action cannot be undone.')) {
+                                                        deleteSample(selectedDetailedSample.id);
+                                                        handleSelectSample(null);
+                                                    }
+                                                }}
+                                                className="p-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl flex items-center gap-2 border border-red-100 transition-colors"
+                                                title="מחיקת דגימה (מנהל בלבד)"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        )}
                                         <div className="p-3 bg-slate-50 rounded-2xl flex items-center gap-3 border border-slate-100">
                                             <Calendar className="w-5 h-5 text-blue-500" />
                                             <div>
