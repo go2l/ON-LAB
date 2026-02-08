@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, LayersControl, LayerGroup } from 'react-leaflet';
+import React, { useState, useEffect, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, LayersControl, LayerGroup, useMap, useMapEvents } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Sample, ResistanceCategory, SensitivityTest } from '../types';
 import { RESISTANCE_COLORS } from '../constants';
-import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck, Trash2 } from 'lucide-react';
+import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck, Trash2, List } from 'lucide-react';
 import { useBioshield } from '../context/BioshieldContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,23 +15,34 @@ interface ManagerDashboardProps {
 }
 
 // Function to create custom colored icons
-const createCustomIcon = (color: string, isSelected: boolean) => {
+const createCustomIcon = (color: string, isSelected: boolean, count: number = 1) => {
+  const size = isSelected ? 32 : (count > 1 ? 28 : 16); // Larger for clusters
+
   return L.divIcon({
     className: 'custom-icon',
     html: `
       <div style="
         background-color: ${color};
-        width: ${isSelected ? '24px' : '16px'};
-        height: ${isSelected ? '24px' : '16px'};
+        width: ${size}px;
+        height: ${size}px;
         border-radius: 50%;
-        border: 2px solid white;
+        border: ${count > 1 ? '3px' : '2px'} solid white;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: sans-serif;
+        font-weight: bold;
+        color: white;
+        font-size: 12px;
         ${isSelected ? 'transform: scale(1.1); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);' : ''}
-      "></div>
+      ">
+        ${count > 1 ? count : ''}
+      </div>
     `,
-    iconSize: isSelected ? [24, 24] : [16, 16],
-    iconAnchor: isSelected ? [12, 12] : [8, 8],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -10]
   });
 };
@@ -55,13 +66,157 @@ const getWorstResistance = (tests: SensitivityTest[] | undefined): ResistanceCat
 };
 
 
+// --- Custom Clustering Logic ---
 
-// ... helper functions ...
+interface ClusterGroup {
+  id: string; // Unique ID for the cluster (e.g., id of first sample)
+  lat: number;
+  lng: number;
+  samples: Sample[];
+}
+
+const ClusterLayer: React.FC<{
+  samples: Sample[];
+  results: Record<string, SensitivityTest[]>;
+  selectedSample: Sample | null;
+  setSelectedSample: (s: Sample | null) => void;
+  deleteSample: (id: string) => void;
+  isAdmin: boolean;
+  onSelectSampleDetail: (s: Sample) => void;
+  navigate: any; // Just for types
+}> = ({ samples, results, selectedSample, setSelectedSample, deleteSample, isAdmin, navigate }) => {
+  const map = useMap();
+  const [clusters, setClusters] = useState<ClusterGroup[]>([]);
+  const [zoom, setZoom] = useState(map.getZoom());
+
+  // Update zoom state on map events
+  useMapEvents({
+    zoomend: () => {
+      setZoom(map.getZoom());
+    },
+  });
+
+  useEffect(() => {
+    // Greedy Clustering Algorithm
+    // We group points that are within 'threshold' pixels of each other.
+    const threshold = 40; // pixels
+    const tempClusters: ClusterGroup[] = [];
+    const processed = new Set<string>();
+
+    // Sort by latitude to have some deterministic order, though not strictly required for greedy
+    // Sorting helps slightly with stability
+    const sortedSamples = [...samples].sort((a, b) => b.coordinates.lat - a.coordinates.lat);
+
+    sortedSamples.forEach(sample => {
+      if (processed.has(sample.id)) return;
+
+      const samplePoint = map.latLngToLayerPoint([sample.coordinates.lat, sample.coordinates.lng]);
+
+      // Find an existing cluster to add to
+      let foundCluster = false;
+
+      for (const cluster of tempClusters) {
+        // We use the cluster's static position (lat/lng of its seed) to check distance
+        // This is simple greedy clustering. 
+        // Note: Projecting the cluster lat/lng every time.
+        const clusterPoint = map.latLngToLayerPoint([cluster.lat, cluster.lng]);
+        const dist = samplePoint.distanceTo(clusterPoint);
+
+        if (dist < threshold) {
+          cluster.samples.push(sample);
+          processed.add(sample.id);
+          foundCluster = true;
+          break;
+        }
+      }
+
+      if (!foundCluster) {
+        // Create new cluster
+        tempClusters.push({
+          id: sample.id,
+          lat: sample.coordinates.lat,
+          lng: sample.coordinates.lng,
+          samples: [sample]
+        });
+        processed.add(sample.id);
+      }
+    });
+
+    setClusters(tempClusters);
+
+  }, [samples, zoom, map]); // Re-run when samples, zoom, or map instance/size changes
+
+  return (
+    <>
+      {clusters.map((group) => {
+        const count = group.samples.length;
+        const primarySample = group.samples[0]; // Leader sample
+
+        // Color logic
+        let worstResInGroup = undefined;
+        for (const s of group.samples) {
+          const w = getWorstResistance(results[s.id]);
+          if (w === ResistanceCategory.R) worstResInGroup = w;
+          else if (w === ResistanceCategory.T && worstResInGroup !== ResistanceCategory.R) worstResInGroup = w;
+        }
+        if (!worstResInGroup) {
+          worstResInGroup = getWorstResistance(results[primarySample.id]);
+        }
+
+        const color = worstResInGroup ? RESISTANCE_COLORS[worstResInGroup] : '#94a3b8';
+        const isSelected = group.samples.some(s => s.id === selectedSample?.id);
+
+        return (
+          <Marker
+            key={`cluster-${group.id}-${zoom}`} // Re-mount marker on zoom to ensure position updates if we wanted centroid logic (though here we use seed pos)
+            position={[group.lat, group.lng]}
+            icon={createCustomIcon(color, isSelected, count)}
+          >
+            <Popup className="font-sans" minWidth={200}>
+              {count === 1 ? (
+                <div onClick={() => setSelectedSample(primarySample)} className="cursor-pointer">
+                  <div className="font-bold text-slate-800">{primarySample.internalId}</div>
+                  <div className="text-xs text-slate-500">{primarySample.region}</div>
+                </div>
+              ) : (
+                <div className="max-h-48 overflow-y-auto">
+                  <div className="text-xs font-bold text-slate-400 mb-2 border-b pb-1">
+                    {count} דגימות במיקום זה
+                  </div>
+                  {group.samples.map(s => (
+                    <div
+                      key={s.id}
+                      className="p-2 hover:bg-slate-50 cursor-pointer rounded flex justify-between items-center border-b border-slate-50 last:border-0"
+                      onClick={() => {
+                        setSelectedSample(s);
+                        // Optionally close popup? But user might want to browse.
+                      }}
+                    >
+                      <span className={`font-bold text-sm ${selectedSample?.id === s.id ? 'text-blue-600' : 'text-slate-700'}`}>
+                        {s.internalId}
+                      </span>
+                      <div className="w-2 h-2 rounded-full" style={{
+                        backgroundColor: results[s.id] && results[s.id].length > 0
+                          ? RESISTANCE_COLORS[getWorstResistance(results[s.id]) || 'S']
+                          : '#e2e8f0'
+                      }} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Popup>
+          </Marker>
+        );
+      })}
+    </>
+  );
+};
+
 
 export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, results }) => {
   const navigate = useNavigate();
   const { selectSample, deleteSample } = useBioshield();
-  const { isAdmin } = useAuth(); // Get admin status
+  const { isAdmin } = useAuth();
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPathogen, setFilterPathogen] = useState('ALL');
@@ -150,7 +305,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
           </div>
 
           <MapContainer
-            key={`${samples.length}-${searchTerm}`} // Force re-mount when data changes or on strict mode reload
+            key={`${samples.length}-${searchTerm}`}
             center={[31.4, 35.0]}
             zoom={8}
             scrollWheelZoom={true}
@@ -180,33 +335,27 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                 </LayerGroup>
               </LayersControl.BaseLayer>
             </LayersControl>
-            {filteredSamples.map((sample) => {
-              const sampleTests = results[sample.id];
-              const worstResistance = getWorstResistance(sampleTests);
-              const color = worstResistance ? RESISTANCE_COLORS[worstResistance] : '#94a3b8';
-              const isSelected = selectedSample?.id === sample.id;
 
-              return (
-                <Marker
-                  key={sample.id}
-                  position={[sample.coordinates.lat, sample.coordinates.lng]}
-                  icon={createCustomIcon(color, isSelected)}
-                  eventHandlers={{
-                    click: () => setSelectedSample(sample),
-                  }}
-                >
-                  <Popup className="font-sans">
-                    <div className="font-bold text-slate-800">{sample.internalId}</div>
-                    <div className="text-xs text-slate-500">{sample.region}</div>
-                  </Popup>
-                </Marker>
-              );
-            })}
+            {/* Custom Clustering Logic in separate component to access map context */}
+            <ClusterLayer
+              samples={filteredSamples}
+              results={results}
+              selectedSample={selectedSample}
+              setSelectedSample={setSelectedSample}
+              deleteSample={deleteSample}
+              isAdmin={isAdmin}
+              onSelectSampleDetail={(s) => {
+                selectSample(s.id);
+                navigate('/sample-list');
+              }}
+              navigate={navigate}
+            />
+
           </MapContainer>
 
           {selectedSample && (
             <div className="absolute bottom-6 right-6 left-6 md:left-auto md:w-96 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl animate-fade-in z-[1000] overflow-hidden">
-              <div className="absolute top-0 right-0 left-0 h-1.5" style={{ backgroundColor: results[selectedSample.id] ? RESISTANCE_COLORS[results[selectedSample.id]] : '#cbd5e1' }}></div>
+              <div className="absolute top-0 right-0 left-0 h-1.5" style={{ backgroundColor: results[selectedSample.id] ? RESISTANCE_COLORS[getWorstResistance(results[selectedSample.id])!] || '#cbd5e1' : '#cbd5e1' }}></div>
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h4 className="font-black text-xl text-slate-800">{selectedSample.internalId}</h4>
@@ -309,7 +458,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                   <div className="w-4 h-4 rounded-full ml-4 shadow-sm transition-transform group-hover:scale-125" style={{ backgroundColor: color }} />
                   <div className="flex flex-col">
                     <span className="text-slate-700 font-bold text-sm leading-none mb-1">{cat}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">לפי תקן ניטור 2026</span>
+                    <span className="text-xs text-slate-400">לפי תקן ניטור 2026</span>
                   </div>
                 </div>
               ))}

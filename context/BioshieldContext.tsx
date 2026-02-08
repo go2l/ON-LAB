@@ -66,20 +66,28 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
     };
 
     const addSample = async (newSampleData: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => {
+        console.log("Generating ID with NEW logic V2"); // Debug to confirm reload
         // Generate Sequential Semantic ID
         const pathogen = newSampleData.pathogen || 'Unknown';
-
+        
         let prefix = 'UN';
-        if (pathogen.includes('Botrytis')) prefix = 'B';
-        else if (pathogen.includes('Podosphaera')) prefix = 'P';
-        else if (pathogen.includes('Alternaria')) prefix = 'A';
-        else prefix = pathogen.substring(0, 1).toUpperCase();
+        if (pathogen.includes('Botrytis')) {
+             prefix = 'B';
+        } else if (pathogen.includes('Podosphaera')) {
+             prefix = 'P';
+        } else if (pathogen.includes('Alternaria')) {
+             prefix = 'A';
+        } else {
+             prefix = pathogen.substring(0, 1).toUpperCase();
+        }
+
+        console.log(`Selected prefix for ${pathogen}: ${prefix}`);
 
         // Find highest existing number for this prefix
         const existingIds = samples
             .map(s => s.internalId)
             .filter(id => id && id.startsWith(prefix));
-
+        
         let maxNum = 0;
         existingIds.forEach(id => {
             // Remove prefix which is 1 char (or 2 if UN)
@@ -92,7 +100,8 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
 
         const nextNum = maxNum + 1;
         const newInternalId = `${prefix}${nextNum.toString().padStart(3, '0')}`;
-
+        console.log(`Generated new ID: ${newInternalId}`);
+        
         const timestamp = new Date().toISOString();
 
         const initialEvent: SampleEvent = {
@@ -115,6 +124,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
 
         try {
             const docRef = await addDoc(collection(db, 'samples'), newSample);
+            console.log("Document written with ID: ", docRef.id);
             return newInternalId; // Return the short semantic ID
         } catch (e) {
             console.error("Error adding document: ", e);
@@ -125,13 +135,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
     const updateStatus = async (id: string, status: SampleStatus) => {
         try {
             const sampleRef = doc(db, 'samples', id);
-            // We need to fetch current history to append, or use arrayUnion if strict about atomicity.
-            // For simplicity and to include dynamic fields in event, we'll assume we have the latest sample state or just use arrayUnion with a constructed object.
-            // However, arrayUnion with complex objects like SampleEvent might need exact matches for removal, but addition is fine.
-            // Better to read the current sample from local state to get current history? 
-            // Ideally use transaction, but let's stick to updateDoc with current state logic for now or just trust local state?
-            // Actually, we can just fetch the doc or use arrayUnion.
-
+            
             const newEvent: SampleEvent = {
                 id: `ev-${Date.now()}`,
                 timestamp: new Date().toISOString(),
@@ -140,8 +144,6 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                 description: `סטטוס שונה ל: ${status}`
             };
 
-            // Using Firestore arrayUnion is cleaner if possible, but let's read-modify-write for safety with history order if needed,
-            // or just use arrayUnion. Firestore arrayUnion adds to end.
             const sample = samples.find(s => s.id === id);
             if (!sample) return;
 
@@ -202,9 +204,6 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                 }
             });
 
-            // If nothing changed, we might still want to save the newResults array as the source of truth
-            // But let's build the history events first.
-
             const addedEvents: SampleEvent[] = addedTests.map(test => ({
                 id: `ev-${Date.now()}-add-${test.id}`,
                 timestamp: new Date().toISOString(),
@@ -227,7 +226,6 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             await updateDoc(sampleRef, {
                 results: newResults,
                 history: updatedHistory,
-                // If results are added, meaningful status change? Maybe not automatically.
             });
         } catch (e) {
             console.error("Error adding results: ", e);
