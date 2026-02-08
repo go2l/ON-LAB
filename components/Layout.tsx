@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebaseConfig';
 import {
   ShieldCheck,
   Plus,
@@ -10,29 +14,40 @@ import {
   Menu,
   Bell,
   Search,
-  X
+  X,
+  LogOut,
+  LogIn
 } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
-  activeView: string;
-  onViewChange: (view: string) => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({
-  children,
-  activeView,
-  onViewChange
-}) => {
+export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, role, isAdmin, isSampler } = useAuth();
+
+  // Helper to check if a route is active
+  const isActive = (path: string) => location.pathname === path;
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed', error);
+    }
+  };
 
   const navigation = [
-    { name: 'דף הבית', view: 'map', icon: LayoutDashboard },
-    { name: 'דגימות חדשות', view: 'add', icon: Plus },
-    { name: 'רשימת הדגימות', view: 'list', icon: FileText },
-    { name: 'מעקב מעבדה', subtitle: '(נדרשת הרשאה)', view: 'lab', icon: Beaker },
-    { name: 'ניהול משתמשים', view: 'users', icon: Users },
-    { name: 'מפות ודוחות', view: 'reports', icon: ShieldCheck },
+    { name: 'דף הבית', path: '/', icon: LayoutDashboard, show: true }, // Always show home
+    { name: 'דגימות חדשות', path: '/add-sample', icon: Plus, show: !!user && isSampler },
+    { name: 'רשימת הדגימות', path: '/sample-list', icon: FileText, show: !!user && isSampler },
+    { name: 'מעקב מעבדה', subtitle: '(נדרשת הרשאה)', path: '/lab-monitor', icon: Beaker, show: !!user && isAdmin },
+    { name: 'ניהול משתמשים', path: '/users', icon: Users, show: !!user && isAdmin }, // Assuming users is admin only? The original code had it, keeping it.
+    { name: 'מפות ודוחות', path: '/reports', icon: ShieldCheck, show: !!user && isSampler }, // Assuming standard logged in users can see reports
   ];
 
   return (
@@ -52,8 +67,8 @@ export const Layout: React.FC<LayoutProps> = ({
       >
         <div className="p-6 flex items-center justify-between border-b border-slate-100">
           {(isSidebarOpen || window.innerWidth < 768) && (
-            <div className="animate-fade-in group flex flex-col items-start gap-2">
-              <img src="/logo.png" alt="ON-LAB" className="h-16 w-auto object-contain" />
+            <div className="animate-fade-in group flex flex-col items-center gap-2 flex-1">
+              <img src="/logo.png" alt="ON-LAB" className="h-28 w-auto object-contain drop-shadow-sm hover:scale-105 transition-transform" />
             </div>
           )}
           <button
@@ -72,15 +87,15 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
 
         <nav className="flex-1 mt-6 px-3 space-y-1">
-          {navigation.map((item) => (
-            <button
-              key={item.view}
+          {navigation.filter(item => item.show).map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
               onClick={() => {
-                onViewChange(item.view);
                 // Close sidebar on mobile after selection
                 if (window.innerWidth < 768) setIsSidebarOpen(false);
               }}
-              className={`w-full flex items-center p-3 rounded-xl transition-all group ${activeView === item.view
+              className={`w-full flex items-center p-3 rounded-xl transition-all group ${isActive(item.path)
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-200 font-bold'
                 : 'text-slate-500 hover:bg-slate-50 font-medium'
                 }`}
@@ -93,23 +108,51 @@ export const Layout: React.FC<LayoutProps> = ({
                   {item.subtitle && <span className="text-[10px] opacity-75 font-normal">{item.subtitle}</span>}
                 </div>
               )}
-            </button>
+            </Link>
           ))}
-        </nav>
 
-        <div className="p-6 border-t border-slate-100">
-          <div className="bg-slate-50 rounded-2xl p-4">
-            <div className={`flex items-center ${(!isSidebarOpen && window.innerWidth >= 768) && 'justify-center'}`}>
-              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">AM</div>
+          {!user && (
+            <Link
+              to="/login"
+              className={`w-full flex items-center p-3 rounded-xl transition-all group text-slate-500 hover:bg-slate-50 font-medium mt-4 border-t border-slate-100`}
+            >
+              <LogIn className={`w-5 h-5 flex-shrink-0 ${isSidebarOpen ? 'ml-3' : 'mx-auto md:mx-auto'}`} />
               {(isSidebarOpen || window.innerWidth < 768) && (
-                <div className="mr-3 overflow-hidden">
-                  <p className="text-xs font-bold text-slate-700 truncate">משתמש מערכת</p>
-                  <p className="text-[10px] text-slate-400 truncate">מנהל מערכת</p>
+                <div className="flex flex-col items-start leading-tight text-right">
+                  <span className="text-sm">התחברות</span>
                 </div>
               )}
+            </Link>
+          )}
+        </nav>
+
+        {user && (
+          <div className="p-6 border-t border-slate-100">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors mb-2"
+            >
+              <LogOut className={`w-5 h-5 flex-shrink-0 ${isSidebarOpen ? 'ml-3' : 'mx-auto md:mx-auto'}`} />
+              {(isSidebarOpen || window.innerWidth < 768) && <span className="text-sm font-medium">התנתק</span>}
+            </button>
+
+            <div className="bg-slate-50 rounded-2xl p-4">
+              <div className={`flex items-center ${(!isSidebarOpen && window.innerWidth >= 768) && 'justify-center'}`}>
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
+                  {user.email ? user.email.substring(0, 2).toUpperCase() : 'U'}
+                </div>
+                {(isSidebarOpen || window.innerWidth < 768) && (
+                  <div className="mr-3 overflow-hidden">
+                    <p className="text-xs font-bold text-slate-700 truncate">{user.email}</p>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {isAdmin ? 'מנהל מערכת' : (isSampler ? 'דוגם' : 'אורח')}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </aside>
 
       {/* Main Content Area */}
@@ -174,3 +217,4 @@ export const Layout: React.FC<LayoutProps> = ({
     </div>
   );
 };
+

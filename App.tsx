@@ -1,24 +1,25 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { FieldIntake } from './components/FieldIntake';
 import { LabDashboard } from './components/LabDashboard';
 import { SampleList } from './components/SampleList';
+import { BioshieldProvider, useBioshield } from './context/BioshieldContext';
+import { LandingPage } from './components/LandingPage';
+import { ReportsDashboard } from './components/ReportsDashboard';
+import { GuidelinesPage } from './components/GuidelinesPage';
+import { AuthProvider } from './context/AuthContext';
+import { LoginPage } from './components/LoginPage';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { UsersManagement } from './components/UsersManagement';
 
-// Lazy load Map component to avoid Leaflet SSR/Init issues crashing the app
+// Lazy load Map component
 const ManagerDashboard = React.lazy(() =>
   import('./components/ManagerDashboard').then(module => ({ default: module.ManagerDashboard }))
 );
 
-import { BioshieldProvider, useBioshield } from './context/BioshieldContext';
-
-import { LandingPage } from './components/LandingPage';
-import { ReportsDashboard } from './components/ReportsDashboard';
-import { GuidelinesPage } from './components/GuidelinesPage';
-
-function AppContent() {
+function AppRoutes() {
   const {
-    activeView,
-    setView,
     samples,
     results,
     addSample,
@@ -27,71 +28,60 @@ function AppContent() {
   } = useBioshield();
 
   return (
-    <Layout
-      activeView={activeView}
-      onViewChange={setView}
-    >
-      <div className="h-full">
-        {activeView === 'landing' && (
-          <LandingPage onEnter={() => setView('map')} />
-        )}
+    <Router>
+      <Layout>
+        <div className="h-full">
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={
+              <React.Suspense fallback={
+                <div className="flex justify-center items-center h-full">
+                  <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              }>
+                <ManagerDashboard samples={samples} results={results} />
+              </React.Suspense>
+            } />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/guidelines" element={<GuidelinesPage onBack={() => window.history.back()} />} />
 
-        {activeView === 'guidelines' && (
-          <GuidelinesPage onBack={() => setView('map')} />
-        )}
+            {/* Sampler Routes */}
+            <Route element={<ProtectedRoute requiredRole="sampler" />}>
+              <Route path="/add-sample" element={<FieldIntake onSave={addSample} />} />
+              <Route path="/sample-list" element={<SampleList samples={samples} />} />
+              <Route path="/reports" element={<ReportsDashboard samples={samples} results={results} />} />
+            </Route>
 
-        {activeView === 'map' && (
-          <React.Suspense fallback={
-            <div className="flex justify-center items-center h-full">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-          }>
-            <ManagerDashboard
-              samples={samples}
-              results={results}
-            />
-          </React.Suspense>
-        )}
+            {/* Admin Routes */}
+            <Route element={<ProtectedRoute requiredRole="lab_admin" />}>
+              <Route path="/lab-monitor" element={
+                <LabDashboard
+                  samples={samples}
+                  onUpdateStatus={updateStatus}
+                  onSaveResult={addResult}
+                />
+              } />
 
-        {activeView === 'add' && (
-          <FieldIntake onSave={addSample} />
-        )}
+              <Route path="/users" element={<UsersManagement />} />
+            </Route>
 
-        {activeView === 'lab' && (
-          <LabDashboard
-            samples={samples}
-            onUpdateStatus={updateStatus}
-            onSaveResult={addResult}
-          />
-        )}
+            {/* Catch all - Redirect to Home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
 
-        {activeView === 'list' && (
-          <SampleList samples={samples} />
-        )}
-
-        {activeView === 'reports' && (
-          <ReportsDashboard samples={samples} results={results} />
-        )}
-
-        {activeView === 'users' && (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[32px] border border-slate-200">
-            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <h3 className="text-xl font-bold text-slate-800">בפיתוח...</h3>
-            <p className="text-slate-500">מודול זה יהיה זמין בעדכון המערכת הבא של ON-LAB-IL.</p>
-          </div>
-        )}
-      </div>
-    </Layout>
+          </Routes>
+        </div>
+      </Layout>
+    </Router>
   );
 }
 
 function App() {
   return (
-    <BioshieldProvider>
-      <AppContent />
-    </BioshieldProvider>
+    <AuthProvider>
+      <BioshieldProvider>
+        <AppRoutes />
+      </BioshieldProvider>
+    </AuthProvider>
   );
 }
 

@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, LayersControl, LayerGroup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, LayersControl, LayerGroup } from 'react-leaflet';
+import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Sample, ResistanceCategory, SensitivityTest } from '../types';
 import { RESISTANCE_COLORS } from '../constants';
-import { X, MapPin, Search, Database, AlertCircle, Info, ChevronLeft } from 'lucide-react';
-
-// Fix moved inside component to avoid SSR/Initial load issues
-
+import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck } from 'lucide-react';
 import { useBioshield } from '../context/BioshieldContext';
+import { useAuth } from '../context/AuthContext';
 
 interface ManagerDashboardProps {
   samples: Sample[];
@@ -55,8 +54,14 @@ const getWorstResistance = (tests: SensitivityTest[] | undefined): ResistanceCat
   return tests[0].category; // Default fallback
 };
 
+
+
+// ... helper functions ...
+
 export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, results }) => {
-  const { setView, selectSample } = useBioshield();
+  const navigate = useNavigate();
+  const { selectSample } = useBioshield();
+  const { isAdmin } = useAuth(); // Get admin status
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPathogen, setFilterPathogen] = useState('ALL');
@@ -74,21 +79,6 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
 
   const resistanceRate = samples.length > 0 ? ((totalResistant / samples.length) * 100).toFixed(1) : "0";
 
-  useEffect(() => {
-    // ... Leaflet fix ...
-    try {
-      // @ts-ignore
-      delete L.Icon.Default.prototype._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      });
-    } catch (e) {
-      console.error("Leaflet Icon Fix Error:", e);
-    }
-  }, []);
-
   return (
     <div className="space-y-8 animate-fade-in" dir="rtl">
       {/* ... Header ... */}
@@ -98,6 +88,12 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
           <p className="text-slate-500 text-sm">ניטור עמידות לפונגצידים - ON-LAB-IL</p>
         </div>
         <div className="flex items-center gap-3">
+          {isAdmin && (
+            <div className="px-4 py-2 bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold flex items-center shadow-sm">
+              <ShieldCheck className="w-4 h-4 ml-2" />
+              ממשק ניהול (Admin)
+            </div>
+          )}
           <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold flex items-center">
             <div className="w-2 h-2 bg-blue-600 rounded-full ml-2 animate-pulse"></div>
             מחובר למערכת הניטור
@@ -273,7 +269,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                 onClick={() => {
                   if (selectedSample) {
                     selectSample(selectedSample.id);
-                    setView('list');
+                    navigate('/sample-list');
                   }
                 }}
                 className="w-full bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center text-sm border border-slate-100">
@@ -315,7 +311,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
               לצפייה בנהלי דגימה ומדריכי התחברות לממשקי המעבדה.
             </p>
             <button
-              onClick={() => setView('guidelines')}
+              onClick={() => navigate('/guidelines')}
               className="bg-white/20 hover:bg-white/30 text-white font-bold py-3 px-6 rounded-2xl w-full transition-all text-sm backdrop-blur-md border border-white/20 relative z-10">
               מרכז הידע וההנחיות
             </button>

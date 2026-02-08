@@ -1,11 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ShieldCheck, ChevronRight, Lock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-interface LandingPageProps {
-  onEnter: () => void;
-}
+export const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth(); // Assuming AuthContext provides 'user'
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
+  useEffect(() => {
+    if (user) {
+      navigate('/map');
+    }
+  }, [user, navigate]);
+
+  const handleEnter = () => {
+    navigate('/login');
+  };
+
   return (
     <div className="relative min-h-screen bg-slate-50 flex items-center justify-center overflow-hidden font-sans">
       {/* Abstract Background Patterns */}
@@ -40,7 +51,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
 
           <div className="space-y-3">
             <button
-              onClick={onEnter}
+              onClick={handleEnter}
               className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-3 active:scale-95"
             >
               <span>כניסה למערכת</span>
