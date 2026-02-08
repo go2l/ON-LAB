@@ -66,7 +66,29 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
     };
 
     const addSample = async (newSampleData: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => {
-        const newInternalId = `BS-${Math.floor(Math.random() * 90000) + 10000}`;
+        // Generate Sequential Semantic ID
+        const pathogen = newSampleData.pathogen || 'Unknown';
+        // Get first 2 letters, uppercase. If Hebrew/Symbols, falling back might be needed, but assuming English per requirements "Botrytis -> BO"
+        // If names are Hebrew, we might need a mapping. Assuming English for now based on examples.
+        // Actually, let's just take the first 2 chars.
+        const prefix = pathogen.substring(0, 2).toUpperCase();
+
+        // Find highest existing number for this prefix
+        const existingIds = samples
+            .map(s => s.internalId)
+            .filter(id => id.startsWith(prefix));
+
+        let maxNum = 0;
+        existingIds.forEach(id => {
+            const numPart = parseInt(id.substring(2));
+            if (!isNaN(numPart) && numPart > maxNum) {
+                maxNum = numPart;
+            }
+        });
+
+        const nextNum = maxNum + 1;
+        const newInternalId = `${prefix}${nextNum.toString().padStart(3, '0')}`;
+
         const timestamp = new Date().toISOString();
 
         const initialEvent: SampleEvent = {
