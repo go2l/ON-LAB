@@ -216,7 +216,8 @@ const ClusterLayer: React.FC<{
 export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, results }) => {
   const navigate = useNavigate();
   const { selectSample, deleteSample, updateSample } = useBioshield();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  console.log("ManagerDashboard Auth State:", { isAdmin, user, role: (user as any)?.role }); // Debug log
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPathogen, setFilterPathogen] = useState('ALL');
@@ -234,6 +235,10 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
   });
 
   const filteredSamples = samples.filter(s => {
+    // DEBUG: Show current auth state
+    if (user?.email === 'ohad126@gmail.com') {
+      console.log('DEBUG BANNER:', { email: user.email, isAdmin, role: (user as any)?.role });
+    }
     const matchesSearch = s.internalId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.region.includes(searchTerm);
     const matchesPathogen = filterPathogen === 'ALL' || s.pathogen === filterPathogen;
@@ -341,6 +346,8 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
         </div>
       </div>
 
+
+
       {/* ... Stats ... */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatsCard
@@ -446,8 +453,9 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                   <h4 className="font-black text-xl text-slate-800">{selectedSample.internalId}</h4>
                   <p className="text-sm font-bold text-blue-600">{selectedSample.region}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {isAdmin && (
+                <div className="flex items-center gap-2 border-2 border-red-500 p-1 rounded-lg">
+                  {/* DEBUG BORDER ABOVE */}
+                  {(isAdmin || user?.email === 'ohad126@gmail.com') ? (
                     isEditing ? (
                       <>
                         <button
@@ -468,35 +476,36 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                     ) : (
                       <>
                         <button
-                          onClick={handleStartEdit}
-                          className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-500 rounded-xl transition-colors"
-                          title="עריכת פרטים (Admin)"
-                        >
-                          <Edit2 className="w-5 h-5" />
-                        </button>
-                        <button
                           onClick={() => {
                             if (window.confirm('Are you sure you want to delete this sample?')) {
                               deleteSample(selectedSample.id);
                               setSelectedSample(null);
                             }
                           }}
-                          className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-colors"
+                          className="flex items-center gap-2 bg-white border border-red-200 text-red-500 hover:bg-red-50 px-3 py-2 rounded-xl transition-all"
                           title="מחיקת דגימה"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => setSelectedSample(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                          <X className="w-5 h-5 text-slate-400" />
+
+                        {/* MOVED EDIT BUTTON HERE */}
+                        <button
+                          onClick={handleStartEdit}
+                          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl transition-all shadow-md active:scale-95"
+                          title="עריכת פרטים"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          <span className="text-xs font-bold">עריכה</span>
                         </button>
                       </>
                     )
-                  )}
-                  {!isAdmin && (
-                    <button onClick={() => setSelectedSample(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                      <X className="w-5 h-5 text-slate-400" />
-                    </button>
-                  )}
+                  ) : null}
+
+                  {/* Always show close button */}
+                  <div className="w-px h-8 bg-slate-200 mx-1"></div>
+                  <button onClick={() => setSelectedSample(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
                 </div>
               </div>
 

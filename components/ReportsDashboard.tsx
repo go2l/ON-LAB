@@ -42,7 +42,10 @@ const LAB_OPTIONS = [
     'בר אילן - יריב בן נעים'
 ];
 
+import { useAuth } from '../context/AuthContext';
+
 export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, results }) => {
+    const { isAdmin } = useAuth();
     // 1. Filters State
     const [selectedLab, setSelectedLab] = useState('כל המעבדות');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -299,7 +302,9 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
                             <div className="absolute left-0 top-full pt-2 w-48 hidden group-hover:block z-20">
                                 <div className="bg-white rounded-xl shadow-xl border border-slate-100 p-2">
                                     <button onClick={() => handleAddSheet('LAB_RESULTS')} className="w-full text-right p-2 text-xs font-bold hover:bg-slate-50 rounded-lg">תוצאות מעבדה</button>
-                                    <button onClick={() => handleAddSheet('PESTICIDES')} className="w-full text-right p-2 text-xs font-bold hover:bg-slate-50 rounded-lg">טיפולי הדברה</button>
+                                    {isAdmin && (
+                                        <button onClick={() => handleAddSheet('PESTICIDES')} className="w-full text-right p-2 text-xs font-bold hover:bg-slate-50 rounded-lg">טיפולי הדברה</button>
+                                    )}
                                     <button onClick={() => handleAddSheet('SUMMARY')} className="w-full text-right p-2 text-xs font-bold hover:bg-slate-50 rounded-lg">סיכום עמידויות</button>
                                 </div>
                             </div>

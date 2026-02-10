@@ -65,7 +65,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                     // 4. Fetch or Create User Profile for Metadata
                     const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-                    if (userDoc.exists()) {
+
+                    // SUPER ADMIN OVERRIDE
+                    if (emailKey === 'ohad126@gmail.com') {
+                        setRole('lab_admin');
+                    } else if (userDoc.exists()) {
                         setRole(userDoc.data().role as UserRole);
                     } else {
                         // Use role from whitelist

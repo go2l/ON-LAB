@@ -17,7 +17,9 @@ import {
     Activity,
     ChevronRight,
     ClipboardList,
-    Trash2
+    Trash2,
+    Edit2,
+    Save
 } from 'lucide-react';
 import { useBioshield } from '../context/BioshieldContext';
 import { useAuth } from '../context/AuthContext';
@@ -27,18 +29,23 @@ interface SampleListProps {
 }
 
 export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
-    const { selectedSampleId, selectSample, deleteSample } = useBioshield();
-    const { isAdmin } = useAuth();
+    const { selectedSampleId, selectSample, deleteSample, updateSample } = useBioshield();
+    const { isAdmin, user } = useAuth(); // Added user for super-admin check
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [filterPathogen, setFilterPathogen] = useState<string>('ALL');
     const [selectedDetailedSample, setSelectedDetailedSample] = useState<Sample | null>(null);
+
+    // Edit State
+    const [isEditing, setIsEditing] = useState(false);
+    const [editFormData, setEditFormData] = useState<Partial<Sample>>({});
 
     // Sync with global selection
     useEffect(() => {
         if (selectedSampleId) {
             const sample = samples.find(s => s.id === selectedSampleId);
             if (sample) setSelectedDetailedSample(sample);
+            setIsEditing(false); // Reset edit mode on change
         } else {
             setSelectedDetailedSample(null);
         }
@@ -47,6 +54,27 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
     const handleSelectSample = (sample: Sample | null) => {
         setSelectedDetailedSample(sample);
         selectSample(sample ? sample.id : null);
+    };
+
+    const handleStartEdit = () => {
+        if (selectedDetailedSample) {
+            setEditFormData({ ...selectedDetailedSample });
+            setIsEditing(true);
+        }
+    };
+
+    const handleSaveEdit = async () => {
+        if (selectedDetailedSample && updateSample) {
+            try {
+                await updateSample(selectedDetailedSample.id, editFormData);
+                // Update local state immediately for UI responsiveness
+                setSelectedDetailedSample({ ...selectedDetailedSample, ...editFormData } as Sample);
+                setIsEditing(false);
+                alert('עודכן בהצלחה');
+            } catch (e) {
+                alert('שגיאה בעדכון: ' + e);
+            }
+        }
     };
 
     const filteredSamples = samples.filter(s => {
@@ -81,6 +109,29 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
             default: return 'bg-slate-50 text-slate-600 border-slate-100';
         }
     };
+
+    // Helper for rendering inputs vs text
+    const renderEditableField = (label: string, field: keyof Sample, type: string = 'text') => {
+        if (isEditing) {
+            return (
+                <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{label}</p>
+                    <input
+                        type={type}
+                        className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                        value={editFormData[field] as string || ''}
+                        onChange={e => setEditFormData({ ...editFormData, [field]: e.target.value })}
+                    />
+                </div>
+            );
+        }
+        // Fallback to static display
+        const val = selectedDetailedSample ? selectedDetailedSample[field] : '-';
+        return <DetailItem label={label} value={String(val || '-')} />;
+    };
+
+
+    // ... helper functions ... (getStatusIcon etc)
 
     return (
         <div className="space-y-6 animate-fade-in" dir="rtl">
@@ -228,7 +279,7 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                 )}
             </div>
 
-            {/* Detail Modal */}
+            {/* ... Modal ... */}
             {selectedDetailedSample && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" dir="rtl">
                     <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col relative">
@@ -243,18 +294,69 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                             <div className="p-10">
                                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 pb-10 border-b border-slate-100">
                                     <div>
+                                        {/* Status & ID Header */}
                                         <div className="flex items-center gap-4 mb-3">
                                             <span className="text-4xl font-black text-blue-600 tracking-tighter">{selectedDetailedSample.internalId}</span>
                                             <div className={`px-4 py-1 rounded-full border text-sm font-bold ${getStatusColor(selectedDetailedSample.status)}`}>
                                                 {selectedDetailedSample.status}
                                             </div>
                                         </div>
-                                        <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                                            {selectedDetailedSample.crop} • {selectedDetailedSample.variety || 'זן לא ידוע'}
-                                        </h3>
+                                        {/* Title area (Crop / Variety) */}
+                                        {isEditing ? (
+                                            <div className="flex gap-4">
+                                                <input
+                                                    className="bg-slate-50 border p-2 rounded w-32"
+                                                    value={editFormData.crop || ''}
+                                                    onChange={e => setEditFormData({ ...editFormData, crop: e.target.value })}
+                                                    placeholder="גידול"
+                                                />
+                                                <input
+                                                    className="bg-slate-50 border p-2 rounded w-32"
+                                                    value={editFormData.variety || ''}
+                                                    onChange={e => setEditFormData({ ...editFormData, variety: e.target.value })}
+                                                    placeholder="זן"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                                {selectedDetailedSample.crop} • {selectedDetailedSample.variety || 'זן לא ידוע'}
+                                            </h3>
+                                        )}
                                     </div>
-                                    <div className="flex gap-3">
-                                        {isAdmin && (
+
+                                    {/* Action Buttons */}
+                                    <div className="flex gap-3 items-center">
+                                        {(isAdmin || user?.email === 'ohad126@gmail.com') && (
+                                            isEditing ? (
+                                                <>
+                                                    <button
+                                                        onClick={handleSaveEdit}
+                                                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-2xl transition-all shadow-lg shadow-green-200"
+                                                    >
+                                                        <Save className="w-5 h-5" />
+                                                        <span className="font-bold">שמור שינויים</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setIsEditing(false); setEditFormData({}); }}
+                                                        className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-500 px-6 py-3 rounded-2xl transition-all"
+                                                    >
+                                                        <X className="w-5 h-5" />
+                                                        <span className="font-bold">ביטול</span>
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    onClick={handleStartEdit}
+                                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl transition-all shadow-lg shadow-blue-200"
+                                                >
+                                                    <Edit2 className="w-5 h-5" />
+                                                    <span className="font-bold">עריכה מלאה</span>
+                                                </button>
+                                            )
+                                        )}
+
+                                        {/* Original Delete Button (Only Show if NOT editing to save space, or keep it?) */}
+                                        {(!isEditing && (isAdmin || user?.email === 'ohad126@gmail.com')) && (
                                             <button
                                                 onClick={() => {
                                                     if (window.confirm('Are you sure you want to delete this sample? This action cannot be undone.')) {
@@ -268,20 +370,6 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                 <Trash2 className="w-5 h-5" />
                                             </button>
                                         )}
-                                        <div className="p-3 bg-slate-50 rounded-2xl flex items-center gap-3 border border-slate-100">
-                                            <Calendar className="w-5 h-5 text-blue-500" />
-                                            <div>
-                                                <p className="text-[10px] text-slate-400 font-bold leading-none mb-1">תאריך דיגום</p>
-                                                <p className="text-xs font-bold text-slate-700">{new Date(selectedDetailedSample.date).toLocaleDateString('he-IL')}</p>
-                                            </div>
-                                        </div>
-                                        <div className="p-3 bg-slate-50 rounded-2xl flex items-center gap-3 border border-slate-100">
-                                            <MapPin className="w-5 h-5 text-red-500" />
-                                            <div>
-                                                <p className="text-[10px] text-slate-400 font-bold leading-none mb-1">מיקום</p>
-                                                <p className="text-xs font-bold text-slate-700">{selectedDetailedSample.region}</p>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -293,50 +381,181 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                 פרטי דגימה מלאים
                                             </h4>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 p-8 rounded-[32px] border border-slate-100">
-                                                <DetailItem label="יישוב / מועצה" value={selectedDetailedSample.municipality || 'לא צויין'} />
-                                                <DetailItem label="שם חלקה" value={selectedDetailedSample.plotName || 'לא צויין'} />
-                                                <DetailItem label="שיטת גידול" value={selectedDetailedSample.cultivationSystem} />
-                                                <DetailItem label="פתוגן מטרה" value={selectedDetailedSample.pathogen} />
-                                                <DetailItem label="מעבדה יעד" value={selectedDetailedSample.lab || 'לא נבחרה'} />
-                                                <DetailItem label="דחיפות" value={selectedDetailedSample.priority || 'רגיל'} />
-                                                <DetailItem label="שולח" value={selectedDetailedSample.collectorName} />
-                                                <DetailItem label="קואורדינטות" value={`${selectedDetailedSample.coordinates.lat.toFixed(4)}, ${selectedDetailedSample.coordinates.lng.toFixed(4)}`} />
+                                                {renderEditableField('יישוב / מועצה', 'municipality')}
+                                                {renderEditableField('שם חלקה', 'plotName')}
+                                                {renderEditableField('שיטת גידול', 'cultivationSystem')}
+                                                {renderEditableField('פתוגן מטרה', 'pathogen')}
+                                                {renderEditableField('מעבדה יעד', 'lab')}
+                                                {renderEditableField('דחיפות', 'priority')}
+                                                {renderEditableField('אזור', 'region')}
+
+                                                {/* Coordinates Section */}
+                                                {isEditing ? (
+                                                    <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-4 bg-blue-50/30 p-4 rounded-xl border border-blue-100">
+                                                        <div>
+                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">קו רוחב (Lat)</p>
+                                                            <input
+                                                                type="number"
+                                                                step="any"
+                                                                className="w-full bg-white border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                                                                value={editFormData.coordinates?.lat || ''}
+                                                                onChange={e => setEditFormData({
+                                                                    ...editFormData,
+                                                                    coordinates: {
+                                                                        lat: parseFloat(e.target.value) || 0,
+                                                                        lng: editFormData.coordinates?.lng || 0
+                                                                    }
+                                                                })}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">קו אורך (Lng)</p>
+                                                            <input
+                                                                type="number"
+                                                                step="any"
+                                                                className="w-full bg-white border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                                                                value={editFormData.coordinates?.lng || ''}
+                                                                onChange={e => setEditFormData({
+                                                                    ...editFormData,
+                                                                    coordinates: {
+                                                                        lat: editFormData.coordinates?.lat || 0,
+                                                                        lng: parseFloat(e.target.value) || 0
+                                                                    }
+                                                                })}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <DetailItem label="מיקום (GPS)" value={`${selectedDetailedSample.coordinates?.lat.toFixed(5)}, ${selectedDetailedSample.coordinates?.lng.toFixed(5)}`} />
+                                                )}
+
+                                                {/* Collector Section */}
+                                                <div className="col-span-1 md:col-span-2 pt-4 border-t border-slate-200 mt-2">
+                                                    <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">פרטי הדוגם</h5>
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        {renderEditableField('שם הדוגם', 'collectorName')}
+                                                        {renderEditableField('טלפון', 'collectorPhone')}
+                                                        {renderEditableField('אימייל', 'collectorEmail')}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        {selectedDetailedSample.notes && (
+                                        {selectedDetailedSample.notes || isEditing ? (
                                             <div>
                                                 <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">הערות שטח</h4>
-                                                <div className="bg-white border-2 border-slate-100 p-6 rounded-2xl text-slate-600 text-sm italic italic leading-relaxed">
-                                                    "{selectedDetailedSample.notes}"
-                                                </div>
+                                                {isEditing ? (
+                                                    <textarea
+                                                        className="w-full bg-slate-50 border p-4 rounded-2xl h-32"
+                                                        value={editFormData.notes || ''}
+                                                        onChange={e => setEditFormData({ ...editFormData, notes: e.target.value })}
+                                                    />
+                                                ) : (
+                                                    <div className="bg-white border-2 border-slate-100 p-6 rounded-2xl text-slate-600 text-sm italic italic leading-relaxed">
+                                                        "{selectedDetailedSample.notes}"
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+                                        ) : null}
 
+                                        {/* Pesticide History */}
+                                        {/* ... (Existing code for pesticide history, maybe add delete here too if needed, but keeping scope focused) ... */}
+                                        {/* Keeping existing read-only view for now unless requested */}
                                         <div>
                                             <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                                                 <Activity className="w-4 h-4" />
                                                 היסטוריית טיפולים שתועדה
                                             </h4>
-                                            {selectedDetailedSample.pesticideHistory.length > 0 ? (
+                                            {isEditing ? (
                                                 <div className="space-y-3">
-                                                    {selectedDetailedSample.pesticideHistory.map(p => (
-                                                        <div key={p.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl">
-                                                            <div className="flex items-center gap-6 text-sm">
-                                                                <span className="font-black text-slate-800">{p.material}</span>
-                                                                <span className="text-slate-400">{p.date}</span>
-                                                                <span className="text-blue-600 font-bold">{p.dosage}</span>
+                                                    {(editFormData.pesticideHistory || []).map((p, idx) => (
+                                                        <div key={idx} className="flex flex-col gap-2 p-4 bg-blue-50/30 border border-blue-100 rounded-2xl relative group">
+                                                            <button
+                                                                onClick={() => {
+                                                                    const newHistory = [...(editFormData.pesticideHistory || [])];
+                                                                    newHistory.splice(idx, 1);
+                                                                    setEditFormData({ ...editFormData, pesticideHistory: newHistory });
+                                                                }}
+                                                                className="absolute top-2 left-2 p-1 bg-white text-red-500 rounded-full shadow hover:bg-red-50"
+                                                                title="מחק טיפול"
+                                                            >
+                                                                <X className="w-3 h-3" />
+                                                            </button>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <input
+                                                                    className="bg-white border p-1 rounded text-sm w-full"
+                                                                    value={p.material}
+                                                                    onChange={e => {
+                                                                        const newHistory = [...(editFormData.pesticideHistory || [])];
+                                                                        newHistory[idx] = { ...p, material: e.target.value };
+                                                                        setEditFormData({ ...editFormData, pesticideHistory: newHistory });
+                                                                    }}
+                                                                    placeholder="חומר"
+                                                                />
+                                                                <input
+                                                                    type="date"
+                                                                    className="bg-white border p-1 rounded text-sm w-full"
+                                                                    value={p.date}
+                                                                    onChange={e => {
+                                                                        const newHistory = [...(editFormData.pesticideHistory || [])];
+                                                                        newHistory[idx] = { ...p, date: e.target.value };
+                                                                        setEditFormData({ ...editFormData, pesticideHistory: newHistory });
+                                                                    }}
+                                                                />
+                                                                <input
+                                                                    className="bg-white border p-1 rounded text-sm w-full"
+                                                                    value={p.dosage}
+                                                                    onChange={e => {
+                                                                        const newHistory = [...(editFormData.pesticideHistory || [])];
+                                                                        newHistory[idx] = { ...p, dosage: e.target.value };
+                                                                        setEditFormData({ ...editFormData, pesticideHistory: newHistory });
+                                                                    }}
+                                                                    placeholder="מינון"
+                                                                />
                                                             </div>
                                                         </div>
                                                     ))}
+                                                    <button
+                                                        onClick={() => {
+                                                            const newHistory = [...(editFormData.pesticideHistory || [])];
+                                                            newHistory.push({
+                                                                id: Date.now().toString(),
+                                                                material: '',
+                                                                date: new Date().toISOString().split('T')[0],
+                                                                dosage: '',
+                                                                method: 'ריסוס' as any
+                                                            });
+                                                            setEditFormData({ ...editFormData, pesticideHistory: newHistory });
+                                                        }}
+                                                        className="w-full py-2 bg-blue-100 text-blue-600 rounded-xl font-bold hover:bg-blue-200 transition-colors text-sm flex items-center justify-center gap-2"
+                                                    >
+                                                        <Activity className="w-4 h-4" />
+                                                        הוסף טיפול
+                                                    </button>
                                                 </div>
                                             ) : (
-                                                <p className="text-slate-400 text-sm italic">לא תועדה היסטוריית טיפולים</p>
+                                                selectedDetailedSample.pesticideHistory.length > 0 ? (
+                                                    <div className="space-y-3">
+                                                        {selectedDetailedSample.pesticideHistory.map(p => (
+                                                            <div key={p.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl">
+                                                                <div className="flex items-center gap-6 text-sm">
+                                                                    <span className="font-black text-slate-800">{p.material}</span>
+                                                                    <span className="text-slate-400">{p.date}</span>
+                                                                    <span className="text-blue-600 font-bold">{p.dosage}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-slate-400 text-sm italic">לא תועדה היסטוריית טיפולים</p>
+                                                )
                                             )}
                                         </div>
                                     </div>
 
+                                    {/* Audit Trail (Right Col) */}
                                     <div>
+                                        {/* ... existing audit trail code ... */}
                                         <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                                             <Activity className="w-4 h-4" />
                                             יומן פעולות (Audit Trail)
