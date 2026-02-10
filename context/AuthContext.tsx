@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 
 type UserRole = 'sampler' | 'lab_admin' | null;
@@ -64,15 +64,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const assignedRole = whitelistData.role as UserRole || 'sampler';
 
                     // 4. Fetch or Create User Profile for Metadata
-                    const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+                    const userDocRef = doc(db, 'users', currentUser.uid);
+                    const userDoc = await getDoc(userDocRef);
+
+                    // SYNC: If user doc doesn't exist or role is outdated, update it.
+                    // The new firestore.rules allow this write if it matches the whitelist.
+                    if (!userDoc.exists() || userDoc.data().role !== assignedRole) {
+                        console.log('Syncing user profile with whitelist role:', assignedRole);
+                        try {
+                            await setDoc(userDocRef, {
+                                email: currentUser.email,
+                                role: assignedRole,
+                                lastLogin: new Date().toISOString()
+                            }, { merge: true });
+                        } catch (e) {
+                            console.error('Failed to sync user profile:', e);
+                            // We continue anyway, as the rules might now allow partial access via whitelist check
+                        }
+                    }
 
                     // SUPER ADMIN OVERRIDE
                     if (emailKey === 'ohad126@gmail.com') {
                         setRole('lab_admin');
-                    } else if (userDoc.exists()) {
-                        setRole(userDoc.data().role as UserRole);
                     } else {
-                        // Use role from whitelist
+                        // Use the assigned role from whitelist (which is now also in 'users' doc)
                         setRole(assignedRole);
                     }
                 } catch (error) {

@@ -7,20 +7,28 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Helper function to check user role
-    function hasRole(role) {
+    // Helper: Check if user is in whitelist with a specific role
+    function isWhitelisted(role) {
       return isAuthenticated() && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+        get(/databases/$(database)/documents/whitelist/$(request.auth.token.email.lower())).data.role == role;
     }
-    
-    // Helper function to check if user is admin
+
+    // Helper: extended check for admin (whitelist OR users collection OR hardcoded)
     function isAdmin() {
-      return hasRole('lab_admin');
+      return isAuthenticated() && (
+        request.auth.token.email == 'ohad126@gmail.com' ||
+        isWhitelisted('lab_admin') ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'lab_admin'
+      );
     }
     
-    // Helper function to check if user is sampler (or admin)
+    // Helper: extended check for sampler
     function isSampler() {
-      return hasRole('sampler') || isAdmin();
+      return isAuthenticated() && (
+        isAdmin() ||
+        isWhitelisted('sampler') ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'sampler'
+      );
     }
 
     // Whitelist Collection:
@@ -33,9 +41,13 @@ service cloud.firestore {
 
     // Users collection:
     // - Users can read their own profile
+    // - Users can write their OWN profile IF the data matches their whitelist role (Sync)
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin();
+      allow write: if isAdmin() || (
+        request.auth.uid == userId && 
+        isWhitelisted(request.resource.data.role)
+      );
     }
 
     // Samples collection:
