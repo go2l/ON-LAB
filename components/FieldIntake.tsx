@@ -33,7 +33,8 @@ import {
   Printer,
   User,
   Mail,
-  Phone
+  Phone,
+  Calendar
 } from 'lucide-react';
 
 interface FieldIntakeProps {
@@ -62,6 +63,9 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
 
   const [customCrop, setCustomCrop] = useState('');
   const [useCustomCrop, setUseCustomCrop] = useState(false);
+
+  const [customCultivate, setCustomCultivate] = useState('');
+  const [useCustomCultivate, setUseCustomCultivate] = useState(false);
 
   const [newPesticide, setNewPesticide] = useState({
     material: '',
@@ -136,13 +140,15 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
 
     setIsSubmitting(true);
     const finalCrop = useCustomCrop ? customCrop : formData.crop;
+    const finalCultivation = useCustomCultivate ? customCultivate : formData.cultivationSystem;
 
     // Simulate network delay
     setTimeout(() => {
       const finalId = onSave({
         ...formData,
         crop: finalCrop as any,
-        date: new Date().toISOString(),
+        cultivationSystem: finalCultivation as any,
+        date: new Date(formData.date).toISOString(), // Use the selected date
       });
       setGeneratedId(finalId);
       setIsSubmitting(false);
@@ -249,6 +255,16 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
         {step === 1 && (
           <div className="space-y-8 animate-fade-in">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <FormGroup label="תאריך דיגום" icon={<Calendar className="w-4 h-4 ml-2 text-blue-500" />}>
+                <input
+                  type="date"
+                  required
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  className="input-clean"
+                />
+              </FormGroup>
+
               <FormGroup label="שם מלא של הדוגם" icon={<User className="w-4 h-4 ml-2 text-blue-500" />}>
                 <input
                   type="text"
@@ -333,13 +349,35 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <FormGroup label="שיטת גידול" icon={<AlertTriangle className="w-4 h-4 ml-2 text-amber-500" />}>
-                <select
-                  value={formData.cultivationSystem}
-                  onChange={(e) => setFormData({ ...formData, cultivationSystem: e.target.value as CultivationSystem })}
-                  className="input-clean"
-                >
-                  {Object.values(CultivationSystem).map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <div className="space-y-3">
+                  <select
+                    value={useCustomCultivate ? 'OTHER' : formData.cultivationSystem}
+                    onChange={(e) => {
+                      if (e.target.value === 'OTHER') {
+                        setUseCustomCultivate(true);
+                        // Don't change formData.cultivationSystem yet, wait for input
+                      } else {
+                        setUseCustomCultivate(false);
+                        setFormData({ ...formData, cultivationSystem: e.target.value as any });
+                      }
+                    }}
+                    className="input-clean"
+                  >
+                    {Object.values(CultivationSystem).map(s => <option key={s} value={s}>{s}</option>)}
+                    <option value="OTHER">שיטה אחרת...</option>
+                  </select>
+                  {useCustomCultivate && (
+                    <input
+                      type="text"
+                      placeholder="הזן שיטת גידול..."
+                      value={customCultivate}
+                      onChange={(e) => setCustomCultivate(e.target.value)}
+                      className="input-clean border-amber-400 focus:ring-amber-100"
+                      autoFocus
+                      required
+                    />
+                  )}
+                </div>
               </FormGroup>
 
               <FormGroup label="פתוגן מטרה" icon={<Bug className="w-4 h-4 ml-2 text-red-500" />}>
@@ -465,12 +503,15 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
         {step === 4 && (
           <div className="space-y-10 animate-fade-in">
             <div className="bg-blue-50 rounded-3xl p-8 border border-blue-100">
-              <h4 className="font-black text-blue-800 mb-6 flex items-center">
+              <h4 className="font-black text-blue-800 mb-2 flex items-center">
                 <Pill className="w-5 h-5 ml-2" />
                 הוספת טיפול בהדברה
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
+              <p className="text-sm font-bold text-slate-500 mb-6">
+                יש לציין יישומים רלוונטים שבוצעו בחודש האחרון בלבד.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="space-y-2 md:col-span-2">
                   <label className="text-xs font-bold text-blue-600 mr-2">שם חומר מוכר</label>
                   <input
                     type="text"
@@ -481,7 +522,19 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-blue-600 mr-2">תאריך יישום</label>
+                  <label className="text-xs font-bold text-blue-600 mr-2">שיטת יישום</label>
+                  <select
+                    value={newPesticide.method}
+                    onChange={(e) => setNewPesticide({ ...newPesticide, method: e.target.value as ApplicationMethod })}
+                    className="input-clean"
+                  >
+                    <option value={ApplicationMethod.SPRAYING}>{ApplicationMethod.SPRAYING}</option>
+                    <option value={ApplicationMethod.DRENCHING}>{ApplicationMethod.DRENCHING}</option>
+                    <option value={ApplicationMethod.OTHER}>{ApplicationMethod.OTHER}</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-blue-600 mr-2">תאריך</label>
                   <input
                     type="date"
                     value={newPesticide.date}
@@ -490,7 +543,7 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-blue-600 mr-2">מינון (לדונם/ל'...)</label>
+                  <label className="text-xs font-bold text-blue-600 mr-2">מינון</label>
                   <input
                     type="text"
                     value={newPesticide.dosage}
@@ -528,8 +581,11 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
                           <p className="font-black text-slate-800">{p.material}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-400 font-bold mb-1">תאריך</p>
                           <p className="font-bold text-slate-600">{p.date}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-bold mb-1">שיטה</p>
+                          <p className="font-bold text-slate-600">{p.method}</p>
                         </div>
                         <div>
                           <p className="text-xs text-slate-400 font-bold mb-1">מינון</p>
@@ -565,7 +621,7 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
                   <DetailRow label="טלפון" value={formData.collectorPhone} />
                   <DetailRow label="דוא״ל" value={formData.collectorEmail} />
                   <DetailRow label="גידול" value={`${useCustomCrop ? customCrop : formData.crop} (${formData.variety || 'ללא זן'})`} />
-                  <DetailRow label="שיטה" value={formData.cultivationSystem} />
+                  <DetailRow label="שיטה" value={useCustomCultivate ? customCultivate : formData.cultivationSystem} />
                   <DetailRow label="פתוגן" value={formData.pathogen} />
                   <DetailRow label="אזור" value={`${formData.region}, ${formData.municipality}`} />
                   <DetailRow label="חלקה" value={formData.plotName} />

@@ -13,8 +13,12 @@ import {
     MapPin,
     FlaskConical,
     Layout,
-    Check
+    Check,
+    Database // Icon for backup
 } from 'lucide-react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
+import { logActivity } from '../utils/logging';
 
 interface ReportsDashboardProps {
     samples: Sample[];
@@ -194,7 +198,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
         if (activeSheetId === id) setActiveSheetId(newSheets[0].id);
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
         const wb = XLSX.utils.book_new();
         // Set RTL for workbook if possible, otherwise per sheet
         wb.Workbook = { Views: [{ RTL: true }] };
@@ -218,6 +222,74 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
 
         const fileName = `ON-LAB-IL_Reports_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, fileName);
+        await logActivity('EXPORT_DATA', { type: 'EXCEL', sheets: sheets.map(s => s.name) });
+    };
+
+    const handleFullBackup = async () => {
+        if (!isAdmin) return;
+
+        try {
+            // Lazy load firestore functions to avoid top-level bundle weight if possible, 
+            // but for now we use the imported ones or we need to import them.
+            // Since we didn't add imports at top yet, let's assume we will via another edit or 
+            // we can try to use the existing context if it exposed raw db access, but it doesn't fully.
+            // Better to import what we need. 
+            // WAIT - I need to add imports first. 
+            // I will return the function body here and add imports in next step to be safe, 
+            // or I can do it all if I replace a chunk that includes imports? 
+            // The imports are at the top, this chunk is in the middle. 
+            // I will do the button and logic here, and imports in another step.
+
+            // Actually, I can't use 'collection' etc if not imported. 
+            // check if they are imported... checking top of file... 
+            // They are NOT imported.
+
+            // I'll leave this placeholder for a second and assume I'll add imports in next step.
+            // Or I can use the 'db' from firebaseConfig if I import it...
+
+            // Let's implement the logic assuming imports exist, then add imports.
+
+            const timestamp = new Date().toISOString();
+
+            // 1. Fetch Samples
+            const samplesSnap = await getDocs(collection(db, 'samples'));
+            const samplesData = samplesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            // 2. Fetch Users
+            const usersSnap = await getDocs(collection(db, 'users'));
+            const usersData = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            // 3. Fetch Whitelist
+            const whitelistSnap = await getDocs(collection(db, 'whitelist'));
+            const whitelistData = whitelistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            const backupData = {
+                metadata: {
+                    version: '1.0',
+                    exportDate: timestamp,
+                    exportedBy: 'admin' // could get user email context
+                },
+                samples: samplesData,
+                users: usersData,
+                whitelist: whitelistData
+            };
+
+            const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ON-LAB-IL_Full_Backup_${timestamp.split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            await logActivity('SYSTEM_BACKUP', { type: 'JSON_FULL' });
+
+        } catch (e) {
+            console.error('Backup failed:', e);
+            alert('שגיאה ביצירת גיבוי: ' + e);
+        }
     };
 
     return (
@@ -359,6 +431,19 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
                             הורדת קובץ Excel
                         </button>
                         <p className="text-center text-[10px] text-slate-400 mt-3 font-medium">קובץ מאובטח • פורמט 2026</p>
+
+                        {isAdmin && (
+                            <div className="mt-6 pt-6 border-t border-slate-100">
+                                <button
+                                    onClick={handleFullBackup}
+                                    className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition-transform active:scale-95 text-sm"
+                                >
+                                    <Database className="w-4 h-4" />
+                                    גיבוי מערכת מלא (JSON)
+                                </button>
+                                <p className="text-center text-[10px] text-slate-300 mt-2">מיועד למנהלים בלבד</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

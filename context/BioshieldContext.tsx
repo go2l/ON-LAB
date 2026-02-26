@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Sample, ResistanceCategory, SampleStatus, SampleEvent, SensitivityTest } from '../types';
+import { logActivity } from '../utils/logging';
 
 interface BioshieldContextType {
     samples: Sample[];
@@ -126,6 +127,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
         try {
             const docRef = await addDoc(collection(db, 'samples'), newSample);
             console.log("Document written with ID: ", docRef.id);
+            await logActivity('CREATE_SAMPLE', { sampleId: docRef.id, internalId: newInternalId, pathogen });
             return newInternalId; // Return the short semantic ID
         } catch (e) {
             console.error("Error adding document: ", e);
@@ -154,6 +156,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                 status,
                 history: updatedHistory
             });
+            await logActivity('UPDATE_STATUS', { sampleId: id, newStatus: status });
         } catch (e) {
             console.error("Error updating status: ", e);
             throw e; // Propagate error so UI can show toast if we had one
@@ -164,6 +167,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
         try {
             const sampleRef = doc(db, 'samples', id);
             await updateDoc(sampleRef, { isArchived });
+            await logActivity('TOGGLE_ARCHIVE', { sampleId: id, isArchived });
         } catch (e) {
             console.error("Error toggling archive: ", e);
         }
@@ -172,6 +176,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
     const deleteSample = async (id: string) => {
         try {
             await deleteDoc(doc(db, 'samples', id));
+            await logActivity('DELETE_SAMPLE', { sampleId: id });
         } catch (e) {
             console.error("Error deleting sample: ", e);
         }
@@ -267,6 +272,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             const sampleRef = doc(db, 'samples', sampleId);
             await updateDoc(sampleRef, updates);
             console.log(`[addResult] Successfully updated ${sampleId}`);
+            await logActivity('ADD_RESULT', { sampleId, resultsCount: sanitizedResults.length, newStatus });
         } catch (e) {
             console.error("Error adding results: ", e);
             alert("Error saving results: " + e); // Temporary alert for debugging
@@ -276,7 +282,31 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
     const updateSample = async (id: string, data: Partial<Sample>) => {
         try {
             const sampleRef = doc(db, 'samples', id);
+
+            // Calculate Diff for cleaner logs
+            const currentSample = samples.find(s => s.id === id);
+            const changes: Record<string, any> = {};
+            if (currentSample) {
+                (Object.keys(data) as Array<keyof Sample>).forEach(key => {
+                    const newVal = data[key];
+                    const oldVal = currentSample[key];
+                    // Simple equality check (works for primitives, adequate for most fields here)
+                    // For coordinates/nested objects this might show up even if content same but ref different, 
+                    // but better than logging everything.
+                    if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+                        changes[key] = newVal;
+                    }
+                });
+            } else {
+                // Fallback if not found locally
+                Object.assign(changes, data);
+            }
+
             await updateDoc(sampleRef, data);
+
+            if (Object.keys(changes).length > 0) {
+                await logActivity('UPDATE_SAMPLE', { sampleId: id, updates: changes });
+            }
         } catch (e) {
             console.error("Error updating sample: ", e);
             throw e;

@@ -12,6 +12,7 @@ import { AuthProvider } from './context/AuthContext';
 import { LoginPage } from './components/LoginPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UsersManagement } from './components/UsersManagement';
+import { ActivityLogPage } from './components/ActivityLogPage';
 
 // Lazy load Map component
 const ManagerDashboard = React.lazy(() =>
@@ -63,6 +64,7 @@ function AppRoutes() {
               } />
 
               <Route path="/users" element={<UsersManagement />} />
+              <Route path="/admin/logs" element={<ActivityLogPage />} />
             </Route>
 
             {/* Catch all - Redirect to Home */}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Trash2, UserPlus, Shield, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { logActivity } from '../utils/logging';
 
 interface WhitelistedUser {
     email: string; // Document ID
@@ -58,6 +59,8 @@ export const UsersManagement: React.FC = () => {
                 role: newRole
             });
 
+            await logActivity('ADD_USER', { email: emailKey, role: newRole });
+
             // Update local state or re-fetch
             await fetchUsers();
 
@@ -80,6 +83,7 @@ export const UsersManagement: React.FC = () => {
 
         try {
             await deleteDoc(doc(db, 'whitelist', emailToDelete));
+            await logActivity('DELETE_USER', { email: emailToDelete });
             // Optimistic update
             setUsers(prev => prev.filter(u => u.email !== emailToDelete));
         } catch (err: any) {

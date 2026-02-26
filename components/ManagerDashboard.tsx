@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Sample, ResistanceCategory, SensitivityTest, PesticideTreatment, ApplicationMethod } from '../types';
 import { RESISTANCE_COLORS } from '../constants';
-import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck, Trash2, List, Edit2, Save, Plus, SprayCan } from 'lucide-react';
+import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck, Trash2, List, Edit2, Save, Plus, SprayCan, ShieldAlert } from 'lucide-react';
 import { useBioshield } from '../context/BioshieldContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -343,6 +343,16 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
             <div className="w-2 h-2 bg-blue-600 rounded-full ml-2 animate-pulse"></div>
             מחובר למערכת הניטור
           </div>
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/admin/logs')}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center shadow-sm transition-colors"
+              title="צפה בלוג פעילות"
+            >
+              <ShieldAlert className="w-4 h-4 ml-2" />
+              יומן פעילות
+            </button>
+          )}
         </div>
       </div>
 

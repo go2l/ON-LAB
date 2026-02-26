@@ -50,6 +50,7 @@ export enum CultivationSystem {
 
 export enum ApplicationMethod {
   SPRAYING = 'ריסוס',
+  DRENCHING = 'הגמעה', // Added Drenching
   DRIP = 'טפטוף',
   POWDER = 'אבקה',
   SOAKING = 'השרייה',
@@ -87,7 +88,7 @@ export interface Sample {
   region: Region;
   crop: string; // Changed from enum to string for flexibility
   variety: string;
-  cultivationSystem: CultivationSystem;
+  cultivationSystem: string; // Changed from enum to string for flexibility
   pathogen: Pathogen;
   coordinates: GeoPoint;
   status: SampleStatus;

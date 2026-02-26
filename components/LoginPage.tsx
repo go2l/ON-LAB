@@ -3,6 +3,7 @@ import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebaseConfig';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
+import { logActivity } from '../utils/logging';
 
 export const LoginPage: React.FC = () => {
     const [error, setError] = useState('');
@@ -11,6 +12,7 @@ export const LoginPage: React.FC = () => {
     const handleGoogleLogin = async () => {
         try {
             await signInWithPopup(auth, googleProvider);
+            await logActivity('LOGIN', { type: 'GOOGLE' });
             navigate('/');
         } catch (err: any) {
             console.error(err);
