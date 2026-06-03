@@ -37,6 +37,39 @@ import {
   Calendar
 } from 'lucide-react';
 
+const REGION_CENTERS = [
+  { region: Region.ARAVA, lat: 30.2, lng: 35.1 },
+  { region: Region.JORDAN_VALLEY, lat: 32.1, lng: 35.45 },
+  { region: Region.BESOR, lat: 31.25, lng: 34.45 },
+  { region: Region.WESTERN_NEGEV, lat: 31.42, lng: 34.55 },
+  { region: Region.BEIT_SHEAN, lat: 32.5, lng: 35.5 },
+  { region: Region.GALILEE, lat: 33.05, lng: 35.45 },
+  { region: Region.GOLAN, lat: 33.0, lng: 35.78 },
+  { region: Region.JEZREEL_VALLEY, lat: 32.6, lng: 35.25 },
+  { region: Region.COASTAL_PLAIN, lat: 32.25, lng: 34.85 },
+  { region: Region.SHEFELAH, lat: 31.85, lng: 34.88 },
+  { region: Region.CENTRAL_NEGEV, lat: 30.65, lng: 34.8 },
+  { region: Region.NORTHERN_NEGEV, lat: 31.25, lng: 34.8 },
+  { region: Region.SHOMRON, lat: 32.18, lng: 35.22 },
+  { region: Region.JUDEA, lat: 31.62, lng: 35.12 },
+  { region: Region.CARMEL, lat: 32.72, lng: 35.03 },
+];
+
+const getClosestRegion = (lat: number, lng: number): Region => {
+  let closest = REGION_CENTERS[0];
+  let minDistance = Infinity;
+
+  REGION_CENTERS.forEach(center => {
+    const dist = Math.pow(center.lat - lat, 2) + Math.pow(center.lng - lng, 2);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closest = center;
+    }
+  });
+
+  return closest.region;
+};
+
 interface FieldIntakeProps {
   onSave: (sample: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'>) => string;
 }
@@ -110,7 +143,8 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
       setFormData(prev => ({
         ...prev,
         municipality: val,
-        coordinates: { lat: city.lat, lng: city.lng }
+        coordinates: { lat: city.lat, lng: city.lng },
+        region: getClosestRegion(city.lat, city.lng)
       }));
     } else {
       setFormData(prev => ({ ...prev, municipality: val }));
@@ -120,12 +154,12 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
   const handleGetGPS = () => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
         setFormData(prev => ({
           ...prev,
-          coordinates: {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          }
+          coordinates: { lat, lng },
+          region: getClosestRegion(lat, lng)
         }));
       });
     }
@@ -279,7 +313,6 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
               <FormGroup label="מספר טלפון" icon={<Phone className="w-4 h-4 ml-2 text-green-500" />}>
                 <input
                   type="tel"
-                  required
                   value={formData.collectorPhone}
                   onChange={(e) => setFormData({ ...formData, collectorPhone: e.target.value })}
                   className="input-clean"
@@ -290,7 +323,6 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
               <FormGroup label="כתובת דוא״ל" icon={<Mail className="w-4 h-4 ml-2 text-purple-500" />}>
                 <input
                   type="email"
-                  required
                   value={formData.collectorEmail}
                   onChange={(e) => setFormData({ ...formData, collectorEmail: e.target.value })}
                   className="input-clean"
@@ -463,7 +495,8 @@ export const FieldIntake: React.FC<FieldIntakeProps> = ({ onSave }) => {
                         initialLng={formData.coordinates.lng}
                         onLocationSelect={(lat, lng) => setFormData(prev => ({
                           ...prev,
-                          coordinates: { lat, lng }
+                          coordinates: { lat, lng },
+                          region: getClosestRegion(lat, lng)
                         }))}
                       />
                     </React.Suspense>

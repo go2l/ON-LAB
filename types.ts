@@ -6,7 +6,16 @@ export enum Region {
   BESOR = 'חבל הבשור',
   WESTERN_NEGEV = 'נגב מערבי',
   BEIT_SHEAN = 'עמק בית שאן',
-  GALILEE = 'גליל עליון'
+  GALILEE = 'גליל עליון',
+  GOLAN = 'גולן',
+  JEZREEL_VALLEY = 'עמק יזרעאל',
+  COASTAL_PLAIN = 'מישור החוף',
+  SHEFELAH = 'שפלה',
+  CENTRAL_NEGEV = 'נגב מרכזי',
+  NORTHERN_NEGEV = 'נגב צפוני',
+  SHOMRON = 'שומרון',
+  JUDEA = 'יהודה',
+  CARMEL = 'כרמל'
 }
 
 export enum Crop {
@@ -102,6 +111,8 @@ export interface Sample {
   pesticideHistory: PesticideTreatment[];
   history: SampleEvent[]; // New history audit trail
   results?: SensitivityTest[]; // Integrated lab results provided by Firestore
+  labStatus?: 'פעילה' | 'בשימור' | 'נהרסה' | 'לא רלוונטי';
+  fieldTrials?: FieldTrialTest[];
 }
 
 export interface Isolate {
@@ -133,4 +144,25 @@ export interface ResistanceStat {
   region: string;
   resistantCount: number;
   totalCount: number;
+}
+
+export type TrialConclusion = 'עמיד בשטח' | 'רגיש בשטח' | 'תוצאה גבולית';
+
+export interface FieldTrialTest {
+  id: string;
+  sampleId: string;
+  isolateId: string;
+  testDate: string;
+  plantVariety: string;
+  plantCount: number;
+  inoculationDate: string;
+  treatmentMaterial: string;
+  dosage: string;
+  diseaseSeverityControl: number; // %
+  diseaseSeverityTreated: number; // %
+  efficacyRate: number; // %
+  phytotoxicity: string;
+  conclusion: TrialConclusion;
+  notes?: string;
+  user: string;
 }

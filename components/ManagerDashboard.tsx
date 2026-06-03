@@ -3,11 +3,12 @@ import { MapContainer, TileLayer, Marker, Popup, LayersControl, LayerGroup, useM
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Sample, ResistanceCategory, SensitivityTest, PesticideTreatment, ApplicationMethod } from '../types';
+import { Sample, ResistanceCategory, SensitivityTest, PesticideTreatment, ApplicationMethod, Region } from '../types';
 import { RESISTANCE_COLORS } from '../constants';
-import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck, Trash2, List, Edit2, Save, Plus, SprayCan, ShieldAlert } from 'lucide-react';
+import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck, Trash2, List, Edit2, Save, Plus, SprayCan, ShieldAlert, Sprout } from 'lucide-react';
 import { useBioshield } from '../context/BioshieldContext';
 import { useAuth } from '../context/AuthContext';
+import { formatDate } from '../utils/dateFormatter';
 
 interface ManagerDashboardProps {
   samples: Sample[];
@@ -235,6 +236,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
   });
 
   const filteredSamples = samples.filter(s => {
+    if (s.labStatus === 'נהרסה') return false;
     // DEBUG: Show current auth state
     if (user?.email === 'ohad126@gmail.com') {
       console.log('DEBUG BANNER:', { email: user.email, isAdmin, role: (user as any)?.role });
@@ -524,11 +526,16 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                   <div className="space-y-2">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-400">אזור</label>
-                      <input
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700"
+                      <select
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
                         value={editFormData.region || ''}
-                        onChange={e => setEditFormData({ ...editFormData, region: e.target.value as any })}
-                      />
+                        onChange={e => setEditFormData({ ...editFormData, region: e.target.value as Region })}
+                      >
+                        <option value="">בחר אזור...</option>
+                        {Object.values(Region).map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-400">גידול</label>
@@ -560,7 +567,8 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                   <>
                     <DetailRow label="סוג גידול" value={selectedSample.crop} />
                     <DetailRow label="פתוגן מטרה" value={selectedSample.pathogen} />
-                    <DetailRow label="תאריך דגימה" value={new Date(selectedSample.date).toLocaleDateString('he-IL')} />
+                    <DetailRow label="תאריך דגימה" value={formatDate(selectedSample.date)} />
+                    <DetailRow label="סטטוס דגימה" value={selectedSample.labStatus || 'פעילה'} />
                   </>
                 )}
 
@@ -580,7 +588,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                             <div>
                               <div className="font-bold text-slate-700 text-sm">{ph.material}</div>
                               <div className="text-xs text-slate-500">
-                                {new Date(ph.date).toLocaleDateString('he-IL')} • {ph.dosage}
+                                {formatDate(ph.date)} • {ph.dosage}
                               </div>
                             </div>
                             {isEditing && (
@@ -652,7 +660,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
 
                           <div className="flex items-center gap-2 pt-2 border-t border-slate-200/50">
                             <span className="text-[10px] bg-white px-2 py-0.5 rounded border text-slate-500 font-medium">
-                              {new Date(test.date || Date.now()).toLocaleDateString('he-IL')}
+                              {formatDate(test.date || Date.now())}
                             </span>
                             <span className="text-[10px] text-slate-400 flex-1 truncate">
                               ע״י {test.user || 'לא ידוע'}
@@ -667,6 +675,55 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                       ))
                     ) : (
                       <span className="text-slate-400 text-sm">טרם הוזנו תוצאות</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 mt-4">
+                  <span className="text-sm font-bold text-slate-500 block mb-2 flex items-center gap-1">
+                    <Sprout className="w-3.5 h-3.5 text-green-600 animate-pulse" />
+                    ניסויי צמח שלם (בדיקה מתקדמת):
+                  </span>
+                  <div className="space-y-2">
+                    {selectedSample.fieldTrials && selectedSample.fieldTrials.length > 0 ? (
+                      selectedSample.fieldTrials.map((trial, idx) => {
+                        const isSensitive = trial.conclusion === 'רגיש בשטח';
+                        const isResistant = trial.conclusion === 'עמיד בשטח';
+                        
+                        return (
+                          <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col gap-2">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="font-black text-slate-700 text-xs ml-2">{trial.treatmentMaterial}</span>
+                                <span className="text-[10px] font-bold text-slate-400">({trial.dosage})</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                isSensitive ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                isResistant ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                                'bg-amber-50 text-amber-700 border border-amber-100'
+                              }`}>
+                                {trial.conclusion}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] text-slate-500">
+                              <span>יעילות: {trial.efficacyRate}%</span>
+                              <span>זן: {trial.plantVariety || 'לא מוגדר'}</span>
+                            </div>
+                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                              <div
+                                style={{ width: `${Math.max(0, Math.min(100, trial.efficacyRate))}%` }}
+                                className={`h-full rounded-full ${
+                                  isSensitive ? 'bg-emerald-500' :
+                                  isResistant ? 'bg-rose-500' :
+                                  'bg-amber-500'
+                                }`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <span className="text-slate-400 text-xs italic">טרם בוצעו ניסויי צמח שלם</span>
                     )}
                   </div>
                 </div>

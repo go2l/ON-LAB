@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sample, SampleStatus, SampleEvent } from '../types';
+import { Sample, SampleStatus, SampleEvent, Region } from '../types';
 import {
     Search,
     Filter,
@@ -19,10 +19,46 @@ import {
     ClipboardList,
     Trash2,
     Edit2,
-    Save
+    Save,
+    Sprout
 } from 'lucide-react';
 import { useBioshield } from '../context/BioshieldContext';
 import { useAuth } from '../context/AuthContext';
+import { formatDate } from '../utils/dateFormatter';
+import { CITIES } from '../cities';
+
+const REGION_CENTERS = [
+  { region: Region.ARAVA, lat: 30.2, lng: 35.1 },
+  { region: Region.JORDAN_VALLEY, lat: 32.1, lng: 35.45 },
+  { region: Region.BESOR, lat: 31.25, lng: 34.45 },
+  { region: Region.WESTERN_NEGEV, lat: 31.42, lng: 34.55 },
+  { region: Region.BEIT_SHEAN, lat: 32.5, lng: 35.5 },
+  { region: Region.GALILEE, lat: 33.05, lng: 35.45 },
+  { region: Region.GOLAN, lat: 33.0, lng: 35.78 },
+  { region: Region.JEZREEL_VALLEY, lat: 32.6, lng: 35.25 },
+  { region: Region.COASTAL_PLAIN, lat: 32.25, lng: 34.85 },
+  { region: Region.SHEFELAH, lat: 31.85, lng: 34.88 },
+  { region: Region.CENTRAL_NEGEV, lat: 30.65, lng: 34.8 },
+  { region: Region.NORTHERN_NEGEV, lat: 31.25, lng: 34.8 },
+  { region: Region.SHOMRON, lat: 32.18, lng: 35.22 },
+  { region: Region.JUDEA, lat: 31.62, lng: 35.12 },
+  { region: Region.CARMEL, lat: 32.72, lng: 35.03 },
+];
+
+const getClosestRegion = (lat: number, lng: number): Region => {
+  let closest = REGION_CENTERS[0];
+  let minDistance = Infinity;
+
+  REGION_CENTERS.forEach(center => {
+    const dist = Math.pow(center.lat - lat, 2) + Math.pow(center.lng - lng, 2);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closest = center;
+    }
+  });
+
+  return closest.region;
+};
 
 interface SampleListProps {
     samples: Sample[];
@@ -110,9 +146,63 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
         }
     };
 
+    const handleMunicipalityChange = (val: string) => {
+        const city = CITIES.find(c => c.name === val);
+
+        if (city) {
+            setEditFormData(prev => ({
+                ...prev,
+                municipality: val,
+                coordinates: {
+                    lat: city.lat,
+                    lng: city.lng
+                },
+                region: getClosestRegion(city.lat, city.lng)
+            }));
+        } else {
+            setEditFormData(prev => ({ ...prev, municipality: val }));
+        }
+    };
+
     // Helper for rendering inputs vs text
     const renderEditableField = (label: string, field: keyof Sample, type: string = 'text') => {
         if (isEditing) {
+            if (field === 'region') {
+                return (
+                    <div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{label}</p>
+                        <select
+                            className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                            value={editFormData[field] as string || ''}
+                            onChange={e => setEditFormData(prev => ({ ...prev, [field]: e.target.value as Region }))}
+                        >
+                            <option value="">בחר אזור...</option>
+                            {Object.values(Region).map(r => (
+                                <option key={r} value={r}>{r}</option>
+                            ))}
+                        </select>
+                    </div>
+                );
+            }
+
+            if (field === 'municipality') {
+                return (
+                    <div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{label}</p>
+                        <input
+                            list="cities-edit"
+                            type={type}
+                            className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                            value={editFormData[field] as string || ''}
+                            onChange={e => handleMunicipalityChange(e.target.value)}
+                        />
+                        <datalist id="cities-edit">
+                            {CITIES.map(c => <option key={c.name} value={c.name} />)}
+                        </datalist>
+                    </div>
+                );
+            }
+
             return (
                 <div>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{label}</p>
@@ -120,7 +210,7 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                         type={type}
                         className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
                         value={editFormData[field] as string || ''}
-                        onChange={e => setEditFormData({ ...editFormData, [field]: e.target.value })}
+                        onChange={e => setEditFormData(prev => ({ ...prev, [field]: e.target.value }))}
                     />
                 </div>
             );
@@ -205,7 +295,7 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                     <div className="text-[10px] text-slate-400">{sample.variety || 'ללא זן'}</div>
                                 </td>
                                 <td className="px-6 py-4 text-sm text-slate-600">
-                                    {new Date(sample.date).toLocaleDateString('he-IL')}
+                                    {formatDate(sample.date)}
                                 </td>
                                 <td className="px-6 py-4 text-sm text-slate-600 font-medium">
                                     {sample.collectorName}
@@ -237,7 +327,7 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                     <span className="font-black text-lg text-blue-600 tracking-tighter block mb-1">{sample.internalId}</span>
                                     <span className="text-xs text-slate-500 font-bold flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
-                                        {new Date(sample.date).toLocaleDateString('he-IL')}
+                                        {formatDate(sample.date)}
                                     </span>
                                 </div>
                                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold ${getStatusColor(sample.status)}`}>
@@ -307,13 +397,13 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                 <input
                                                     className="bg-slate-50 border p-2 rounded w-32"
                                                     value={editFormData.crop || ''}
-                                                    onChange={e => setEditFormData({ ...editFormData, crop: e.target.value })}
+                                                    onChange={e => setEditFormData(prev => ({ ...prev, crop: e.target.value }))}
                                                     placeholder="גידול"
                                                 />
                                                 <input
                                                     className="bg-slate-50 border p-2 rounded w-32"
                                                     value={editFormData.variety || ''}
-                                                    onChange={e => setEditFormData({ ...editFormData, variety: e.target.value })}
+                                                    onChange={e => setEditFormData(prev => ({ ...prev, variety: e.target.value }))}
                                                     placeholder="זן"
                                                 />
                                             </div>
@@ -388,6 +478,7 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                 {renderEditableField('מעבדה יעד', 'lab')}
                                                 {renderEditableField('דחיפות', 'priority')}
                                                 {renderEditableField('אזור', 'region')}
+                                                <DetailItem label="סטטוס דגימה (פיזי)" value={selectedDetailedSample.labStatus || 'פעילה'} />
 
                                                 {/* Coordinates Section */}
                                                 {isEditing ? (
@@ -399,13 +490,13 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                                 step="any"
                                                                 className="w-full bg-white border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
                                                                 value={editFormData.coordinates?.lat || ''}
-                                                                onChange={e => setEditFormData({
-                                                                    ...editFormData,
+                                                                onChange={e => setEditFormData(prev => ({
+                                                                    ...prev,
                                                                     coordinates: {
                                                                         lat: parseFloat(e.target.value) || 0,
-                                                                        lng: editFormData.coordinates?.lng || 0
+                                                                        lng: prev.coordinates?.lng || 0
                                                                     }
-                                                                })}
+                                                                }))}
                                                             />
                                                         </div>
                                                         <div>
@@ -415,13 +506,13 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                                 step="any"
                                                                 className="w-full bg-white border border-blue-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
                                                                 value={editFormData.coordinates?.lng || ''}
-                                                                onChange={e => setEditFormData({
-                                                                    ...editFormData,
+                                                                onChange={e => setEditFormData(prev => ({
+                                                                    ...prev,
                                                                     coordinates: {
-                                                                        lat: editFormData.coordinates?.lat || 0,
+                                                                        lat: prev.coordinates?.lat || 0,
                                                                         lng: parseFloat(e.target.value) || 0
                                                                     }
-                                                                })}
+                                                                }))}
                                                             />
                                                         </div>
                                                     </div>
@@ -448,7 +539,7 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                     <textarea
                                                         className="w-full bg-slate-50 border p-4 rounded-2xl h-32"
                                                         value={editFormData.notes || ''}
-                                                        onChange={e => setEditFormData({ ...editFormData, notes: e.target.value })}
+                                                        onChange={e => setEditFormData(prev => ({ ...prev, notes: e.target.value }))}
                                                     />
                                                 ) : (
                                                     <div className="bg-white border-2 border-slate-100 p-6 rounded-2xl text-slate-600 text-sm italic italic leading-relaxed">
@@ -472,9 +563,11 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                         <div key={idx} className="flex flex-col gap-2 p-4 bg-blue-50/30 border border-blue-100 rounded-2xl relative group">
                                                             <button
                                                                 onClick={() => {
-                                                                    const newHistory = [...(editFormData.pesticideHistory || [])];
-                                                                    newHistory.splice(idx, 1);
-                                                                    setEditFormData({ ...editFormData, pesticideHistory: newHistory });
+                                                                    setEditFormData(prev => {
+                                                                        const newHistory = [...(prev.pesticideHistory || [])];
+                                                                        newHistory.splice(idx, 1);
+                                                                        return { ...prev, pesticideHistory: newHistory };
+                                                                    });
                                                                 }}
                                                                 className="absolute top-2 left-2 p-1 bg-white text-red-500 rounded-full shadow hover:bg-red-50"
                                                                 title="מחק טיפול"
@@ -486,9 +579,11 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                                     className="bg-white border p-1 rounded text-sm w-full"
                                                                     value={p.material}
                                                                     onChange={e => {
-                                                                        const newHistory = [...(editFormData.pesticideHistory || [])];
-                                                                        newHistory[idx] = { ...p, material: e.target.value };
-                                                                        setEditFormData({ ...editFormData, pesticideHistory: newHistory });
+                                                                        setEditFormData(prev => {
+                                                                            const newHistory = [...(prev.pesticideHistory || [])];
+                                                                            newHistory[idx] = { ...p, material: e.target.value };
+                                                                            return { ...prev, pesticideHistory: newHistory };
+                                                                        });
                                                                     }}
                                                                     placeholder="חומר"
                                                                 />
@@ -497,18 +592,22 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                                     className="bg-white border p-1 rounded text-sm w-full"
                                                                     value={p.date}
                                                                     onChange={e => {
-                                                                        const newHistory = [...(editFormData.pesticideHistory || [])];
-                                                                        newHistory[idx] = { ...p, date: e.target.value };
-                                                                        setEditFormData({ ...editFormData, pesticideHistory: newHistory });
+                                                                        setEditFormData(prev => {
+                                                                            const newHistory = [...(prev.pesticideHistory || [])];
+                                                                            newHistory[idx] = { ...p, date: e.target.value };
+                                                                            return { ...prev, pesticideHistory: newHistory };
+                                                                        });
                                                                     }}
                                                                 />
                                                                 <input
                                                                     className="bg-white border p-1 rounded text-sm w-full"
                                                                     value={p.dosage}
                                                                     onChange={e => {
-                                                                        const newHistory = [...(editFormData.pesticideHistory || [])];
-                                                                        newHistory[idx] = { ...p, dosage: e.target.value };
-                                                                        setEditFormData({ ...editFormData, pesticideHistory: newHistory });
+                                                                        setEditFormData(prev => {
+                                                                            const newHistory = [...(prev.pesticideHistory || [])];
+                                                                            newHistory[idx] = { ...p, dosage: e.target.value };
+                                                                            return { ...prev, pesticideHistory: newHistory };
+                                                                        });
                                                                     }}
                                                                     placeholder="מינון"
                                                                 />
@@ -517,15 +616,17 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                     ))}
                                                     <button
                                                         onClick={() => {
-                                                            const newHistory = [...(editFormData.pesticideHistory || [])];
-                                                            newHistory.push({
-                                                                id: Date.now().toString(),
-                                                                material: '',
-                                                                date: new Date().toISOString().split('T')[0],
-                                                                dosage: '',
-                                                                method: 'ריסוס' as any
+                                                            setEditFormData(prev => {
+                                                                const newHistory = [...(prev.pesticideHistory || [])];
+                                                                newHistory.push({
+                                                                    id: Date.now().toString(),
+                                                                    material: '',
+                                                                    date: new Date().toISOString().split('T')[0],
+                                                                    dosage: '',
+                                                                    method: 'ריסוס' as any
+                                                                });
+                                                                return { ...prev, pesticideHistory: newHistory };
                                                             });
-                                                            setEditFormData({ ...editFormData, pesticideHistory: newHistory });
                                                         }}
                                                         className="w-full py-2 bg-blue-100 text-blue-600 rounded-xl font-bold hover:bg-blue-200 transition-colors text-sm flex items-center justify-center gap-2"
                                                     >
@@ -551,7 +652,110 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                                 )
                                             )}
                                         </div>
-                                    </div>
+
+                                        {/* Lab Results & Field Trials */}
+                                        <div className="pt-6 border-t border-slate-200 mt-6">
+                                            <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                                                <FlaskConical className="w-4 h-4 text-blue-600" />
+                                                תוצאות מעבדה וממצאים
+                                            </h4>
+                                            
+                                            {/* 1. Sensitivity Tests */}
+                                            <div className="mb-6">
+                                                <h5 className="text-xs font-bold text-slate-500 mb-3">בדיקות רגישות (צלחות פטרי):</h5>
+                                                {selectedDetailedSample.results && selectedDetailedSample.results.length > 0 ? (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        {selectedDetailedSample.results.map(test => (
+                                                            <div key={test.id} className="bg-white border border-slate-100 p-4 rounded-2xl flex justify-between items-center shadow-sm">
+                                                                <div>
+                                                                    <span className="font-black text-slate-800 block text-sm">{test.material}</span>
+                                                                    <span className="text-xs text-slate-400 font-bold">{test.dosage} PPM</span>
+                                                                </div>
+                                                                <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
+                                                                    {test.category}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-slate-400 text-xs italic">לא הוזנו בדיקות רגישות</p>
+                                                )}
+                                            </div>
+
+                                            {/* 2. Advanced Lab Tests / Field Trials */}
+                                            <div>
+                                                <h5 className="text-xs font-bold text-slate-500 mb-3 flex items-center gap-1.5">
+                                                    <Sprout className="w-3.5 h-3.5 text-green-600 animate-pulse" />
+                                                    ניסויי צמח שלם (אימות בשטח):
+                                                </h5>
+                                                {selectedDetailedSample.fieldTrials && selectedDetailedSample.fieldTrials.length > 0 ? (
+                                                    <div className="space-y-4">
+                                                        {selectedDetailedSample.fieldTrials.map(trial => {
+                                                            const isResistant = trial.conclusion === 'עמיד בשטח';
+                                                             const isSensitive = trial.conclusion === 'רגיש בשטח';
+
+                                                             return (
+                                                                 <div key={trial.id} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm">
+                                                                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                                                         <span className="text-xs bg-slate-100 text-slate-700 font-black px-2.5 py-1 rounded-lg">
+                                                                             תבדיד: {trial.isolateId || 'לא מוגדר'}
+                                                                         </span>
+                                                                         <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${
+                                                                             isSensitive ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                                                             isResistant ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                                                                             'bg-amber-50 text-amber-700 border border-amber-100'
+                                                                         }`}>
+                                                                             {trial.conclusion}
+                                                                         </span>
+                                                                     </div>
+
+                                                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs mb-4 text-slate-600">
+                                                                         <div>
+                                                                             <span className="text-[10px] font-bold text-slate-400 block mb-0.5">תכשיר נבדק</span>
+                                                                             <span className="font-bold text-slate-800">{trial.treatmentMaterial} ({trial.dosage})</span>
+                                                                         </div>
+                                                                         <div>
+                                                                             <span className="text-[10px] font-bold text-slate-400 block mb-0.5">זן מארח</span>
+                                                                             <span className="font-bold text-slate-800">{trial.plantVariety || 'לא מוגדר'} ({trial.plantCount} צמחים)</span>
+                                                                         </div>
+                                                                         <div>
+                                                                             <span className="text-[10px] font-bold text-slate-400 block mb-0.5">תאריך ביצוע</span>
+                                                                             <span className="font-bold text-slate-800">{formatDate(trial.testDate)}</span>
+                                                                         </div>
+                                                                     </div>
+
+                                                                     <div className="space-y-1.5">
+                                                                         <div className="flex justify-between text-xs font-bold">
+                                                                             <span className="text-slate-500">יעילות הדברה: {trial.efficacyRate}%</span>
+                                                                             <span className="text-slate-500">חומרה (ביקורת/מטופל): {trial.diseaseSeverityControl}% / {trial.diseaseSeverityTreated}%</span>
+                                                                         </div>
+                                                                         <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
+                                                                             <div
+                                                                                 style={{ width: `${Math.max(0, Math.min(100, trial.efficacyRate))}%` }}
+                                                                                 className={`h-full rounded-full ${
+                                                                                     isSensitive ? 'bg-emerald-500' :
+                                                                                     isResistant ? 'bg-rose-500' :
+                                                                                     'bg-amber-500'
+                                                                                 }`}
+                                                                             />
+                                                                         </div>
+                                                                     </div>
+                                                                     
+                                                                     {trial.notes && (
+                                                                         <p className="text-xs text-slate-500 italic mt-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                                                             "{trial.notes}"
+                                                                         </p>
+                                                                     )}
+                                                                 </div>
+                                                             );
+                                                         })}
+                                                     </div>
+                                                 ) : (
+                                                     <p className="text-slate-400 text-xs italic">טרם בוצעו ניסויי צמח שלם</p>
+                                                 )}
+                                             </div>
+                                         </div>
+                                     </div>
 
                                     {/* Audit Trail (Right Col) */}
                                     <div>

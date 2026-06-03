@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Sample, SensitivityTest, ResistanceCategory, SampleStatus } from '../types';
 import * as XLSX from 'xlsx';
+import { formatDate } from '../utils/dateFormatter';
+import { ACTIVE_INGREDIENTS } from '../constants';
 import {
     FileSpreadsheet,
     Plus,
@@ -37,7 +39,7 @@ interface SheetConfig {
 // Helper to get specific dates from history
 const getEventDate = (sample: Sample, type: string): string | null => {
     const event = sample.history?.find(e => e.type === type);
-    return event ? new Date(event.timestamp).toLocaleDateString('he-IL') : null;
+    return event ? formatDate(event.timestamp) : null;
 };
 
 const LAB_OPTIONS = [
@@ -81,15 +83,16 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
         switch (sheet.type) {
             case 'SAMPLES_FULL':
                 return filteredSamples.map(sample => {
-                    const sampleResults = results[sample.id] || [];
+                    const sampleResults = sample.results || [];
                     const worst = sampleResults.find(t => t.category === ResistanceCategory.R) ? 'R' :
                         sampleResults.find(t => t.category === ResistanceCategory.T) ? 'T' : '';
 
                     return {
                         'מזהה דגימה': sample.internalId,
                         'סטטוס': sample.status,
-                        'תאריך דיגום': new Date(sample.date).toLocaleDateString('he-IL'),
-                        'תאריך קבלה': getEventDate(sample, 'RECEIVED_LAB') || '-',
+                        'סטטוס דגימה במעבדה': sample.labStatus || 'פעילה',
+                        'תאריך דיגום': formatDate(sample.date),
+                        'תאריך קבלה': getEventDate(sample, 'LAB_CONFIRMATION') || '-',
                         'דוגם': sample.collectorName,
                         'טלפון דוגם': sample.collectorPhone,
                         'דוא״ל דוגם': sample.collectorEmail,
@@ -99,23 +102,24 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
                         'נ.צ.': `${sample.coordinates.lat.toFixed(4)}, ${sample.coordinates.lng.toFixed(4)}`,
                         'גידול': sample.crop,
                         'זן': sample.variety || '-',
+                        'שיטת גידול': sample.cultivationSystem || '-',
                         'פתוגן': sample.pathogen,
                         'מעבדה': sample.lab,
                         'מספר טיפולים': sample.pesticideHistory.length,
                         'מספר בדיקות': sampleResults.length,
-                        'עמידות חמורה': worst
+                        'קטגוריית עמידות': worst
                     };
                 });
 
             case 'LAB_RESULTS':
                 return filteredSamples.flatMap(sample => {
-                    const sampleRes = results[sample.id] || [];
+                    const sampleRes = sample.results || [];
                     return sampleRes.map(test => ({
                         'מזהה דגימה': sample.internalId,
                         'חומר': test.material,
                         'מינון (PPM)': test.dosage,
                         'קטגוריה': test.category,
-                        'תאריך בדיקה': new Date(test.date).toLocaleDateString('he-IL'),
+                        'תאריך בדיקה': formatDate(test.date),
                         'מבצע': test.user,
                         'הערות': test.notes || '-'
                     }));
@@ -140,26 +144,51 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
                 filteredSamples.forEach(s => {
                     const key = `${s.lab}|${s.region}|${s.crop}`;
                     if (!groups.has(key)) {
-                        groups.set(key, { lab: s.lab, region: s.region, crop: s.crop, total: 0, resistant: 0 });
+                        groups.set(key, { 
+                            lab: s.lab, 
+                            region: s.region, 
+                            crop: s.crop, 
+                            total: 0, 
+                            resistant: 0,
+                            materials: {} as Record<string, number>
+                        });
                     }
                     const group = groups.get(key);
                     group.total++;
 
-                    const sampleResults = results[s.id] || [];
-                    if (sampleResults.some(t => t.category === ResistanceCategory.R)) {
+                    const sampleResults = s.results || [];
+                    let isAnyResistant = false;
+
+                    sampleResults.forEach(test => {
+                        if (test.category === ResistanceCategory.R) {
+                            isAnyResistant = true;
+                            group.materials[test.material] = (group.materials[test.material] || 0) + 1;
+                        }
+                    });
+
+                    if (isAnyResistant) {
                         group.resistant++;
                     }
                 });
 
                 groups.forEach(g => {
-                    summary.push({
+                    const row: any = {
                         'מעבדה': g.lab,
                         'אזור': g.region,
                         'גידול': g.crop,
                         'סה״כ דגימות': g.total,
                         'דגימות עם עמידות': g.resistant,
                         'אחוז עמידות': `${((g.resistant / g.total) * 100).toFixed(1)}%`
+                    };
+
+                    ACTIVE_INGREDIENTS.forEach(mat => {
+                        const count = g.materials[mat] || 0;
+                        const pct = g.total > 0 ? ((count / g.total) * 100).toFixed(1) : "0.0";
+                        row[`עמידות ל-${mat} (כמות)`] = count;
+                        row[`עמידות ל-${mat} (%)`] = `${pct}%`;
                     });
+
+                    summary.push(row);
                 });
                 return summary;
 

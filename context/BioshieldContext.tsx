@@ -10,7 +10,7 @@ import {
     orderBy
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { Sample, ResistanceCategory, SampleStatus, SampleEvent, SensitivityTest } from '../types';
+import { Sample, ResistanceCategory, SampleStatus, SampleEvent, SensitivityTest, FieldTrialTest } from '../types';
 import { logActivity } from '../utils/logging';
 
 interface BioshieldContextType {
@@ -21,7 +21,7 @@ interface BioshieldContextType {
     addSample: (newSample: Omit<Sample, 'id' | 'status' | 'internalId' | 'history'> & { status?: SampleStatus }) => Promise<string>;
     updateStatus: (id: string, status: SampleStatus) => Promise<void>;
     updateSample: (id: string, data: Partial<Sample>) => Promise<void>;
-    addResult: (sampleId: string, results: SensitivityTest[], newStatus?: SampleStatus) => Promise<void>;
+    addResult: (sampleId: string, results: SensitivityTest[], newStatus?: SampleStatus, labStatus?: 'פעילה' | 'בשימור' | 'נהרסה' | 'לא רלוונטי', fieldTrials?: FieldTrialTest[]) => Promise<void>;
     selectedSampleId: string | null;
     selectSample: (id: string | null) => void;
     toggleArchive: (id: string, isArchived: boolean) => Promise<void>;
@@ -182,8 +182,14 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
         }
     };
 
-    const addResult = async (sampleId: string, newResults: SensitivityTest[], newStatus?: SampleStatus) => {
-        console.log(`[addResult] Starting for sample ${sampleId}`, { newResults, newStatus });
+    const addResult = async (
+        sampleId: string,
+        newResults: SensitivityTest[],
+        newStatus?: SampleStatus,
+        labStatus?: 'פעילה' | 'בשימור' | 'נהרסה' | 'לא רלוונטי',
+        fieldTrials?: FieldTrialTest[]
+    ) => {
+        console.log(`[addResult] Starting for sample ${sampleId}`, { newResults, newStatus, fieldTrials });
         try {
             const sample = samples.find(s => s.id === sampleId);
             if (!sample) {
@@ -248,12 +254,107 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             // Sanitize events too
             const sanitizedEvents = [...addedEvents, ...updatedEvents].map(e => sanitize(e) as SampleEvent);
 
-            let updatedHistory = [...(sample.history || []), ...sanitizedEvents];
+            // Field Trials logic
+            const fieldTrialEvents: SampleEvent[] = [];
+            const sanitizedFieldTrials = fieldTrials ? fieldTrials.map(t => sanitize(t) as FieldTrialTest) : undefined;
+
+            if (sanitizedFieldTrials) {
+                const oldFieldTrials = sample.fieldTrials || [];
+                const oldFieldTrialsMap = new Map<string, FieldTrialTest>(oldFieldTrials.map(t => [t.id, t]));
+
+                const addedTrials: FieldTrialTest[] = [];
+                const updatedTrials: FieldTrialTest[] = [];
+                const removedTrials: FieldTrialTest[] = [];
+
+                const currentTrialIds = new Set(sanitizedFieldTrials.map(t => t.id));
+                sanitizedFieldTrials.forEach(newTrial => {
+                    const oldTrial = oldFieldTrialsMap.get(newTrial.id);
+                    if (!oldTrial) {
+                        addedTrials.push(newTrial);
+                    } else {
+                        const hasChanged =
+                            oldTrial.isolateId !== newTrial.isolateId ||
+                            oldTrial.testDate !== newTrial.testDate ||
+                            oldTrial.plantVariety !== newTrial.plantVariety ||
+                            oldTrial.plantCount !== newTrial.plantCount ||
+                            oldTrial.inoculationDate !== newTrial.inoculationDate ||
+                            oldTrial.treatmentMaterial !== newTrial.treatmentMaterial ||
+                            oldTrial.dosage !== newTrial.dosage ||
+                            oldTrial.diseaseSeverityControl !== newTrial.diseaseSeverityControl ||
+                            oldTrial.diseaseSeverityTreated !== newTrial.diseaseSeverityTreated ||
+                            oldTrial.efficacyRate !== newTrial.efficacyRate ||
+                            oldTrial.phytotoxicity !== newTrial.phytotoxicity ||
+                            oldTrial.conclusion !== newTrial.conclusion ||
+                            oldTrial.notes !== newTrial.notes;
+
+                        if (hasChanged) {
+                            updatedTrials.push(newTrial);
+                        }
+                    }
+                });
+
+                oldFieldTrials.forEach(oldTrial => {
+                    if (!currentTrialIds.has(oldTrial.id)) {
+                        removedTrials.push(oldTrial);
+                    }
+                });
+
+                addedTrials.forEach(t => {
+                    fieldTrialEvents.push({
+                        id: `ev-${Date.now()}-ft-add-${t.id}`,
+                        timestamp: new Date().toISOString(),
+                        type: 'RESULT_ADDED',
+                        user: t.user || 'חוקר מעבדה',
+                        description: `ניסוי צמח שלם (בדיקה מתקדמת) נוסף: ${t.treatmentMaterial} (${t.dosage}) - יעילות ${t.efficacyRate}% - ${t.conclusion}`
+                    });
+                });
+
+                updatedTrials.forEach(t => {
+                    fieldTrialEvents.push({
+                        id: `ev-${Date.now()}-ft-upd-${t.id}`,
+                        timestamp: new Date().toISOString(),
+                        type: 'RESULT_UPDATED',
+                        user: t.user || 'חוקר מעבדה',
+                        description: `ניסוי צמח שלם (בדיקה מתקדמת) עודכן: ${t.treatmentMaterial} (${t.dosage}) - יעילות ${t.efficacyRate}% - ${t.conclusion}`
+                    });
+                });
+
+                removedTrials.forEach(t => {
+                    fieldTrialEvents.push({
+                        id: `ev-${Date.now()}-ft-del-${t.id}`,
+                        timestamp: new Date().toISOString(),
+                        type: 'RESULT_UPDATED',
+                        user: 'חוקר מעבדה',
+                        description: `ניסוי צמח שלם (בדיקה מתקדמת) נמחק: ${t.treatmentMaterial}`
+                    });
+                });
+            }
+
+            const sanitizedFieldTrialEvents = fieldTrialEvents.map(e => sanitize(e) as SampleEvent);
+
+            let updatedHistory = [...(sample.history || []), ...sanitizedEvents, ...sanitizedFieldTrialEvents];
 
             const updates: any = {
                 results: sanitizedResults, // Use sanitized
                 history: updatedHistory,
             };
+
+            if (sanitizedFieldTrials !== undefined) {
+                updates.fieldTrials = sanitizedFieldTrials;
+            }
+
+            if (labStatus && labStatus !== sample.labStatus) {
+                updates.labStatus = labStatus;
+                const statusEvent: SampleEvent = {
+                    id: `ev-${Date.now()}-labStatus`,
+                    timestamp: new Date().toISOString(),
+                    type: 'STATUS_CHANGE',
+                    user: 'צוות מעבדה',
+                    description: `סטטוס פיזי במעבדה שונה ל: ${labStatus}`
+                };
+                updatedHistory.push(sanitize(statusEvent));
+                updates.history = updatedHistory;
+            }
 
             if (newStatus && newStatus !== sample.status) {
                 updates.status = newStatus;
@@ -272,7 +373,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             const sampleRef = doc(db, 'samples', sampleId);
             await updateDoc(sampleRef, updates);
             console.log(`[addResult] Successfully updated ${sampleId}`);
-            await logActivity('ADD_RESULT', { sampleId, resultsCount: sanitizedResults.length, newStatus });
+            await logActivity('ADD_RESULT', { sampleId, resultsCount: sanitizedResults.length, fieldTrialsCount: sanitizedFieldTrials ? sanitizedFieldTrials.length : 0, newStatus });
         } catch (e) {
             console.error("Error adding results: ", e);
             alert("Error saving results: " + e); // Temporary alert for debugging
