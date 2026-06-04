@@ -75,9 +75,23 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
   const [sortKey, setSortKey] = useState<SortKey>('internalId');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
+  // Keep selectedSample updated with the latest data from context
   useEffect(() => {
     if (selectedSample) {
-      const existingTests = results[selectedSample.id] || [];
+      const updated = samples.find(s => s.id === selectedSample.id);
+      if (updated) {
+        if (updated !== selectedSample) {
+          setSelectedSample(updated);
+        }
+      } else {
+        setSelectedSample(null);
+      }
+    }
+  }, [samples, selectedSample]);
+
+  useEffect(() => {
+    if (selectedSample) {
+      const existingTests = selectedSample.results || [];
       setSensitivityTests([...existingTests]);
       setLabStatus(selectedSample.labStatus || 'פעילה');
       setFieldTrials(selectedSample.fieldTrials || []);
@@ -106,7 +120,7 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
       notes: '',
       user: 'חוקר מעבדה (AM)'
     });
-  }, [selectedSample, results]);
+  }, [selectedSample]);
 
   const filteredSamples = samples.filter(s => {
     const matchesSearch = s.internalId.toLowerCase().includes(searchTerm.toLowerCase()) ||
