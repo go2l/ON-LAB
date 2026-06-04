@@ -683,78 +683,80 @@ export const SampleList: React.FC<SampleListProps> = ({ samples }) => {
                                             </div>
 
                                             {/* 2. Advanced Lab Tests / Field Trials */}
-                                            <div>
-                                                <h5 className="text-xs font-bold text-slate-500 mb-3 flex items-center gap-1.5">
-                                                    <Sprout className="w-3.5 h-3.5 text-green-600 animate-pulse" />
-                                                    ניסויי צמח שלם (אימות בשטח):
-                                                </h5>
-                                                {selectedDetailedSample.fieldTrials && selectedDetailedSample.fieldTrials.length > 0 ? (
-                                                    <div className="space-y-4">
-                                                        {selectedDetailedSample.fieldTrials.map(trial => {
-                                                            const isResistant = trial.conclusion === 'עמיד בשטח';
-                                                             const isSensitive = trial.conclusion === 'רגיש בשטח';
+                                            {(isAdmin || user?.email === 'ohad126@gmail.com') && (
+                                                <div>
+                                                    <h5 className="text-xs font-bold text-slate-500 mb-3 flex items-center gap-1.5">
+                                                        <Sprout className="w-3.5 h-3.5 text-green-600 animate-pulse" />
+                                                        ניסויי צמח שלם (אימות בשטח):
+                                                    </h5>
+                                                    {selectedDetailedSample.fieldTrials && selectedDetailedSample.fieldTrials.length > 0 ? (
+                                                        <div className="space-y-4">
+                                                            {selectedDetailedSample.fieldTrials.map(trial => {
+                                                                const isResistant = trial.conclusion === 'עמיד בשטח';
+                                                                 const isSensitive = trial.conclusion === 'רגיש בשטח';
 
-                                                             return (
-                                                                 <div key={trial.id} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm">
-                                                                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                                                                         <span className="text-xs bg-slate-100 text-slate-700 font-black px-2.5 py-1 rounded-lg">
-                                                                             תבדיד: {trial.isolateId || 'לא מוגדר'}
-                                                                         </span>
-                                                                         <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${
-                                                                             isSensitive ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                                                                             isResistant ? 'bg-rose-50 text-rose-700 border border-rose-100' :
-                                                                             'bg-amber-50 text-amber-700 border border-amber-100'
-                                                                         }`}>
-                                                                             {trial.conclusion}
-                                                                         </span>
-                                                                     </div>
+                                                                 return (
+                                                                     <div key={trial.id} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm">
+                                                                         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                                                             <span className="text-xs bg-slate-100 text-slate-700 font-black px-2.5 py-1 rounded-lg">
+                                                                                 תבדיד: {trial.isolateId || 'לא מוגדר'}
+                                                                             </span>
+                                                                             <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${
+                                                                                 isSensitive ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                                                                 isResistant ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                                                                                 'bg-amber-50 text-amber-700 border border-amber-100'
+                                                                             }`}>
+                                                                                 {trial.conclusion}
+                                                                             </span>
+                                                                         </div>
 
-                                                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs mb-4 text-slate-600">
-                                                                         <div>
-                                                                             <span className="text-[10px] font-bold text-slate-400 block mb-0.5">תכשיר נבדק</span>
-                                                                             <span className="font-bold text-slate-800">{trial.treatmentMaterial} ({trial.dosage})</span>
+                                                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs mb-4 text-slate-600">
+                                                                             <div>
+                                                                                 <span className="text-[10px] font-bold text-slate-400 block mb-0.5">תכשיר נבדק</span>
+                                                                                 <span className="font-bold text-slate-800">{trial.treatmentMaterial} ({trial.dosage})</span>
+                                                                             </div>
+                                                                             <div>
+                                                                                 <span className="text-[10px] font-bold text-slate-400 block mb-0.5">זן מארח</span>
+                                                                                 <span className="font-bold text-slate-800">{trial.plantVariety || 'לא מוגדר'} ({trial.plantCount} צמחים)</span>
+                                                                             </div>
+                                                                             <div>
+                                                                                 <span className="text-[10px] font-bold text-slate-400 block mb-0.5">תאריך ביצוע</span>
+                                                                                 <span className="font-bold text-slate-800">{formatDate(trial.testDate)}</span>
+                                                                             </div>
                                                                          </div>
-                                                                         <div>
-                                                                             <span className="text-[10px] font-bold text-slate-400 block mb-0.5">זן מארח</span>
-                                                                             <span className="font-bold text-slate-800">{trial.plantVariety || 'לא מוגדר'} ({trial.plantCount} צמחים)</span>
-                                                                         </div>
-                                                                         <div>
-                                                                             <span className="text-[10px] font-bold text-slate-400 block mb-0.5">תאריך ביצוע</span>
-                                                                             <span className="font-bold text-slate-800">{formatDate(trial.testDate)}</span>
-                                                                         </div>
-                                                                     </div>
 
-                                                                     <div className="space-y-1.5">
-                                                                         <div className="flex justify-between text-xs font-bold">
-                                                                             <span className="text-slate-500">יעילות הדברה: {trial.efficacyRate}%</span>
-                                                                             <span className="text-slate-500">חומרה (ביקורת/מטופל): {trial.diseaseSeverityControl}% / {trial.diseaseSeverityTreated}%</span>
+                                                                         <div className="space-y-1.5">
+                                                                             <div className="flex justify-between text-xs font-bold">
+                                                                                 <span className="text-slate-500">יעילות הדברה: {trial.efficacyRate}%</span>
+                                                                                 <span className="text-slate-500">חומרה (ביקורת/מטופל): {trial.diseaseSeverityControl}% / {trial.diseaseSeverityTreated}%</span>
+                                                                             </div>
+                                                                             <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
+                                                                                 <div
+                                                                                     style={{ width: `${Math.max(0, Math.min(100, trial.efficacyRate))}%` }}
+                                                                                     className={`h-full rounded-full ${
+                                                                                         isSensitive ? 'bg-emerald-500' :
+                                                                                         isResistant ? 'bg-rose-500' :
+                                                                                         'bg-amber-500'
+                                                                                     }`}
+                                                                                 />
+                                                                             </div>
                                                                          </div>
-                                                                         <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
-                                                                             <div
-                                                                                 style={{ width: `${Math.max(0, Math.min(100, trial.efficacyRate))}%` }}
-                                                                                 className={`h-full rounded-full ${
-                                                                                     isSensitive ? 'bg-emerald-500' :
-                                                                                     isResistant ? 'bg-rose-500' :
-                                                                                     'bg-amber-500'
-                                                                                 }`}
-                                                                             />
-                                                                         </div>
+                                                                         
+                                                                         {trial.notes && (
+                                                                             <p className="text-xs text-slate-500 italic mt-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                                                                 "{trial.notes}"
+                                                                             </p>
+                                                                         )}
                                                                      </div>
-                                                                     
-                                                                     {trial.notes && (
-                                                                         <p className="text-xs text-slate-500 italic mt-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                                                                             "{trial.notes}"
-                                                                         </p>
-                                                                     )}
-                                                                 </div>
-                                                             );
-                                                         })}
-                                                     </div>
-                                                 ) : (
-                                                     <p className="text-slate-400 text-xs italic">טרם בוצעו ניסויי צמח שלם</p>
-                                                 )}
-                                             </div>
-                                         </div>
+                                                                 );
+                                                             })}
+                                                         </div>
+                                                     ) : (
+                                                         <p className="text-slate-400 text-xs italic">טרם בוצעו ניסויי צמח שלם</p>
+                                                     )}
+                                                </div>
+                                            )}
+                                        </div>
                                      </div>
 
                                     {/* Audit Trail (Right Col) */}

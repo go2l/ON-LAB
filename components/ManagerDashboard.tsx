@@ -52,6 +52,10 @@ const createCustomIcon = (color: string, isSelected: boolean, count: number = 1)
 const getWorstResistance = (tests: SensitivityTest[] | undefined): ResistanceCategory | undefined => {
   if (!tests || tests.length === 0) return undefined;
 
+  // Only evaluate published tests
+  const publishedTests = tests.filter(t => t.published === true);
+  if (publishedTests.length === 0) return undefined;
+
   const priority = [
     ResistanceCategory.R,
     ResistanceCategory.T,
@@ -61,9 +65,9 @@ const getWorstResistance = (tests: SensitivityTest[] | undefined): ResistanceCat
   ];
 
   for (const cat of priority) {
-    if (tests.some(t => t.category === cat)) return cat;
+    if (publishedTests.some(t => t.category === cat)) return cat;
   }
-  return tests[0].category; // Default fallback
+  return publishedTests[0].category; // Default fallback
 };
 
 
@@ -197,7 +201,7 @@ const ClusterLayer: React.FC<{
                         {s.internalId}
                       </span>
                       <div className="w-2 h-2 rounded-full" style={{
-                        backgroundColor: results[s.id] && results[s.id].length > 0
+                        backgroundColor: results[s.id] && results[s.id].filter(t => t.published).length > 0
                           ? RESISTANCE_COLORS[getWorstResistance(results[s.id]) || 'S']
                           : '#e2e8f0'
                       }} />
@@ -247,9 +251,11 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
     return matchesSearch && matchesPathogen;
   });
 
-  const totalResistant = Object.values(results).filter(tests =>
-    getWorstResistance(tests) === ResistanceCategory.R
-  ).length;
+  const totalResistant = samples.filter(s => {
+    if (s.labStatus === 'נהרסה') return false;
+    const tests = results[s.id];
+    return getWorstResistance(tests) === ResistanceCategory.R;
+  }).length;
 
   const resistanceRate = samples.length > 0 ? ((totalResistant / samples.length) * 100).toFixed(1) : "0";
 
@@ -459,7 +465,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
 
           {selectedSample && (
             <div className="absolute bottom-6 right-6 left-6 md:left-auto md:w-96 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl animate-fade-in z-[1000] overflow-hidden max-h-[80vh] overflow-y-auto scrollbar-thin">
-              <div className="absolute top-0 right-0 left-0 h-1.5" style={{ backgroundColor: results[selectedSample.id] ? RESISTANCE_COLORS[getWorstResistance(results[selectedSample.id])!] || '#cbd5e1' : '#cbd5e1' }}></div>
+              <div className="absolute top-0 right-0 left-0 h-1.5" style={{ backgroundColor: results[selectedSample.id] && getWorstResistance(results[selectedSample.id]) ? RESISTANCE_COLORS[getWorstResistance(results[selectedSample.id])!] : '#cbd5e1' }}></div>
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h4 className="font-black text-xl text-slate-800">{selectedSample.internalId}</h4>
@@ -640,8 +646,8 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                 <div className="pt-4 border-t border-slate-100">
                   <span className="text-sm font-bold text-slate-500 block mb-2">תוצאות בדיקה:</span>
                   <div className="space-y-2">
-                    {results[selectedSample.id] && results[selectedSample.id].length > 0 ? (
-                      results[selectedSample.id].map((test, idx) => (
+                    {results[selectedSample.id] && results[selectedSample.id].filter(t => t.published).length > 0 ? (
+                      results[selectedSample.id].filter(t => t.published).map((test, idx) => (
                         <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col gap-2">
                           <div className="flex justify-between items-start">
                             <div>
@@ -679,54 +685,6 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 mt-4">
-                  <span className="text-sm font-bold text-slate-500 block mb-2 flex items-center gap-1">
-                    <Sprout className="w-3.5 h-3.5 text-green-600 animate-pulse" />
-                    ניסויי צמח שלם (בדיקה מתקדמת):
-                  </span>
-                  <div className="space-y-2">
-                    {selectedSample.fieldTrials && selectedSample.fieldTrials.length > 0 ? (
-                      selectedSample.fieldTrials.map((trial, idx) => {
-                        const isSensitive = trial.conclusion === 'רגיש בשטח';
-                        const isResistant = trial.conclusion === 'עמיד בשטח';
-                        
-                        return (
-                          <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col gap-2">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <span className="font-black text-slate-700 text-xs ml-2">{trial.treatmentMaterial}</span>
-                                <span className="text-[10px] font-bold text-slate-400">({trial.dosage})</span>
-                              </div>
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                                isSensitive ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                                isResistant ? 'bg-rose-50 text-rose-700 border border-rose-100' :
-                                'bg-amber-50 text-amber-700 border border-amber-100'
-                              }`}>
-                                {trial.conclusion}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between text-[10px] text-slate-500">
-                              <span>יעילות: {trial.efficacyRate}%</span>
-                              <span>זן: {trial.plantVariety || 'לא מוגדר'}</span>
-                            </div>
-                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                              <div
-                                style={{ width: `${Math.max(0, Math.min(100, trial.efficacyRate))}%` }}
-                                className={`h-full rounded-full ${
-                                  isSensitive ? 'bg-emerald-500' :
-                                  isResistant ? 'bg-rose-500' :
-                                  'bg-amber-500'
-                                }`}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <span className="text-slate-400 text-xs italic">טרם בוצעו ניסויי צמח שלם</span>
-                    )}
-                  </div>
-                </div>
               </div>
 
               <button

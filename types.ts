@@ -130,6 +130,7 @@ export interface SensitivityTest {
   date: string; // ISO string
   user: string;
   notes?: string;
+  published?: boolean;
 }
 
 export interface TestResult {
@@ -165,4 +166,5 @@ export interface FieldTrialTest {
   conclusion: TrialConclusion;
   notes?: string;
   user: string;
+  published?: boolean;
 }

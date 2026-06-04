@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sample, ResistanceCategory, SampleStatus, SensitivityTest, FieldTrialTest, TrialConclusion } from '../types';
 import { useBioshield } from '../context/BioshieldContext';
+import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../utils/dateFormatter';
 import {
   Beaker,
@@ -19,7 +20,8 @@ import {
   Pill,
   Sprout,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Globe
 } from 'lucide-react';
 
 interface LabDashboardProps {
@@ -27,14 +29,16 @@ interface LabDashboardProps {
   onUpdateStatus: (id: string, status: SampleStatus) => void;
   onSaveResult: (
     sampleId: string,
-    result: { id: string, material: string, dosage: string, category: ResistanceCategory }[],
+    result: SensitivityTest[],
     newStatus?: SampleStatus,
-    labStatus?: 'פעילה' | 'בשימור' | 'נהרסה' | 'לא רלוונטי'
+    labStatus?: 'פעילה' | 'בשימור' | 'נהרסה' | 'לא רלוונטי',
+    fieldTrials?: FieldTrialTest[]
   ) => void;
 }
 
 export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateStatus, onSaveResult }) => {
   const { results, toggleArchive, updateSample } = useBioshield();
+  const { isAdmin, user } = useAuth();
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'active' | 'archived'>('active');
@@ -163,7 +167,8 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
         category: newTest.category || ResistanceCategory.S,
         date: new Date().toISOString(),
         user: 'חוקר מעבדה (AM)',
-        notes: newTest.notes
+        notes: newTest.notes,
+        published: false
       };
       setSensitivityTests(prev => [testToAdd, ...prev]);
     }
@@ -265,7 +270,8 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
         phytotoxicity: newTrial.phytotoxicity || 'אין',
         conclusion: newTrial.conclusion || 'תוצאה גבולית',
         notes: newTrial.notes,
-        user: 'חוקר מעבדה (AM)'
+        user: 'חוקר מעבדה (AM)',
+        published: false
       };
       setFieldTrials(prev => [trialToAdd, ...prev]);
     }
@@ -316,6 +322,18 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
         });
       }
     }
+  };
+
+  const togglePublishSensitivityTest = (id: string) => {
+    setSensitivityTests(prev => prev.map(t =>
+      t.id === id ? { ...t, published: !t.published } : t
+    ));
+  };
+
+  const togglePublishFieldTrial = (id: string) => {
+    setFieldTrials(prev => prev.map(t =>
+      t.id === id ? { ...t, published: !t.published } : t
+    ));
   };
 
   const handleArchiveSample = () => {
@@ -619,6 +637,22 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
                               <span className="text-[10px] font-bold text-slate-400">תגובה</span>
                               <span className="text-xs font-black px-2 py-0.5 rounded-md bg-slate-100 w-fit">{test.category}</span>
                             </div>
+                            <div className="flex flex-col min-w-[110px]">
+                              <span className="text-[10px] font-bold text-slate-400">סטטוס פרסום</span>
+                              <button
+                                type="button"
+                                onClick={() => togglePublishSensitivityTest(test.id)}
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all border outline-none ${
+                                  test.published
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300'
+                                    : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                                }`}
+                                title={test.published ? 'לחץ כדי לבטל פרסום מהמפה' : 'לחץ כדי לפרסם במפת דף הבית'}
+                              >
+                                <Globe className={`w-3.5 h-3.5 ${test.published ? 'text-emerald-600 animate-pulse' : 'text-slate-400'}`} />
+                                <span>{test.published ? 'מפורסם במפה' : 'לא מפורסם'}</span>
+                              </button>
+                            </div>
                             <div className="flex flex-col flex-1 min-w-[160px]">
                               <span className="text-[10px] font-bold text-slate-400">הערות ופרטים</span>
                               <div className="flex items-center gap-2 flex-wrap">
@@ -657,216 +691,18 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
                 </div>
 
                 {/* Advanced Lab Tests (Field Trials) Module */}
-                <div className="bg-slate-50 p-8 rounded-[28px] border border-slate-100 mt-8">
-                  <h4 className="text-lg font-extrabold text-slate-800 mb-6 flex items-center justify-between">
-                    <span className="flex items-center">
-                      <Sprout className="w-5 h-5 ml-3 text-green-600 animate-pulse" />
-                      בדיקות מעבדה מתקדמות (ניסוי צמח שלם / שטח)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowTrialForm(!showTrialForm);
-                        if (showTrialForm && editingTrialId) {
-                          setEditingTrialId(null);
-                          setNewTrial({
-                            isolateId: '',
-                            plantVariety: '',
-                            plantCount: 5,
-                            testDate: new Date().toISOString().split('T')[0],
-                            inoculationDate: new Date().toISOString().split('T')[0],
-                            treatmentMaterial: '',
-                            dosage: '',
-                            diseaseSeverityControl: 80,
-                            diseaseSeverityTreated: 20,
-                            efficacyRate: 75,
-                            conclusion: 'רגיש בשטח',
-                            notes: '',
-                            user: 'חוקר מעבדה (AM)'
-                          });
-                        }
-                      }}
-                      className="text-xs bg-white text-blue-600 hover:bg-blue-50 border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm font-bold"
-                    >
-                      {showTrialForm ? (
-                        <>
-                          <ChevronUp className="w-3.5 h-3.5" />
-                          סגור טופס
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-3.5 h-3.5" />
-                          {editingTrialId ? 'ערוך ניסוי' : 'הוסף ניסוי שטח'}
-                        </>
-                      )}
-                    </button>
-                  </h4>
-
-                  {/* Field Trial Add/Edit Form */}
-                  {showTrialForm && (
-                    <div className={`mb-8 bg-white p-6 rounded-2xl border transition-all ${editingTrialId ? 'border-amber-200 shadow-md ring-4 ring-amber-50' : 'border-slate-100'}`}>
-                      <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">
-                        {editingTrialId ? 'עריכת פרטי ניסוי שטח' : 'פרטי ניסוי צמח שלם חדש'}
-                      </h5>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 mr-1">מזהה תבדיד</label>
-                          <input
-                            type="text"
-                            value={newTrial.isolateId}
-                            onChange={(e) => setNewTrial({ ...newTrial, isolateId: e.target.value })}
-                            className="input-clean bg-slate-50 text-sm"
-                            placeholder="לדוגמה: ISO-001"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 mr-1">זן מארח (פונדקאי)</label>
-                          <input
-                            type="text"
-                            value={newTrial.plantVariety}
-                            onChange={(e) => setNewTrial({ ...newTrial, plantVariety: e.target.value })}
-                            className="input-clean bg-slate-50 text-sm"
-                            placeholder="לדוגמה: בלאק ביוטי"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 mr-1">מספר צמחים בניסוי</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={newTrial.plantCount}
-                            onChange={(e) => setNewTrial({ ...newTrial, plantCount: Number(e.target.value) })}
-                            className="input-clean bg-slate-50 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 mr-1">פיטוטוקסיות</label>
-                          <select
-                            value={newTrial.phytotoxicity}
-                            onChange={(e) => setNewTrial({ ...newTrial, phytotoxicity: e.target.value })}
-                            className="input-clean bg-slate-50 text-sm"
-                          >
-                            <option value="אין">אין</option>
-                            <option value="קלה">קלה</option>
-                            <option value="בינונית">בינונית</option>
-                            <option value="קשה">קשה</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 mr-1">תאריך זריעה/ביצוע</label>
-                          <input
-                            type="date"
-                            value={newTrial.testDate}
-                            onChange={(e) => setNewTrial({ ...newTrial, testDate: e.target.value })}
-                            className="input-clean bg-slate-50 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 mr-1">תאריך הדבקה</label>
-                          <input
-                            type="date"
-                            value={newTrial.inoculationDate}
-                            onChange={(e) => setNewTrial({ ...newTrial, inoculationDate: e.target.value })}
-                            className="input-clean bg-slate-50 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 mr-1">חומר הגנה / תכשיר</label>
-                          <input
-                            type="text"
-                            value={newTrial.treatmentMaterial}
-                            onChange={(e) => setNewTrial({ ...newTrial, treatmentMaterial: e.target.value })}
-                            className="input-clean bg-slate-50 text-sm"
-                            placeholder="שם התכשיר"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 mr-1">מינון (ריכוז / סמ"ק)</label>
-                          <input
-                            type="text"
-                            value={newTrial.dosage}
-                            onChange={(e) => setNewTrial({ ...newTrial, dosage: e.target.value })}
-                            className="input-clean bg-slate-50 text-sm"
-                            placeholder="לדוגמה: 0.2%"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Sliders for Disease Severity */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <div className="space-y-3">
-                          <div className="flex justify-between text-xs font-bold">
-                            <span className="text-red-600 font-bold">חומרת מחלה בקבוצת ביקורת:</span>
-                            <span className="bg-red-50 text-red-600 px-2.5 py-0.5 rounded-lg">{newTrial.diseaseSeverityControl}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={newTrial.diseaseSeverityControl}
-                            onChange={(e) => handleSeverityChange('diseaseSeverityControl', Number(e.target.value))}
-                            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-500"
-                          />
-                          <p className="text-[10px] text-slate-400">אחוז הפגיעה בצמחים שלא טופלו בחומר (רמת ההדבקה)</p>
-                        </div>
-
-                        <div className="space-y-3">
-                          <div className="flex justify-between text-xs font-bold">
-                            <span className="text-blue-600 font-bold">חומרת מחלה בקבוצה מטופלת:</span>
-                            <span className="bg-blue-50 text-blue-600 px-2.5 py-0.5 rounded-lg">{newTrial.diseaseSeverityTreated}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={newTrial.diseaseSeverityTreated}
-                            onChange={(e) => handleSeverityChange('diseaseSeverityTreated', Number(e.target.value))}
-                            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                          />
-                          <p className="text-[10px] text-slate-400">אחוז הפגיעה בצמחים שטופלו בתכשיר</p>
-                        </div>
-                      </div>
-
-                      {/* Calculation results & Final conclusions */}
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6 items-center">
-                        <div className="md:col-span-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100/50 flex flex-col justify-center items-center h-full">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase">יעילות הדברה מחושבת</span>
-                          <span className="text-2xl font-black text-blue-600 mt-1">{newTrial.efficacyRate}%</span>
-                        </div>
-
-                        <div className="md:col-span-4 space-y-2">
-                          <label className="text-xs font-bold text-slate-500 mr-1">מסקנת הניסוי</label>
-                          <select
-                            value={newTrial.conclusion}
-                            onChange={(e) => setNewTrial({ ...newTrial, conclusion: e.target.value as TrialConclusion })}
-                            className="input-clean bg-slate-50 text-sm font-bold"
-                          >
-                            <option value="רגיש בשטח">רגיש בשטח (יעיל ≥ 75%)</option>
-                            <option value="עמיד בשטח">עמיד בשטח (יעיל ≤ 40%)</option>
-                            <option value="תוצאה גבולית">תוצאה גבולית (41% - 74%)</option>
-                          </select>
-                        </div>
-
-                        <div className="md:col-span-4 space-y-2">
-                          <label className="text-xs font-bold text-slate-500 mr-1">הערות לניסוי</label>
-                          <input
-                            type="text"
-                            value={newTrial.notes || ''}
-                            onChange={(e) => setNewTrial({ ...newTrial, notes: e.target.value })}
-                            className="input-clean bg-slate-50 text-sm"
-                            placeholder="לדוגמה: סימני נבילה קלים"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowTrialForm(false);
+                {(isAdmin || user?.email === 'ohad126@gmail.com') && (
+                  <div className="bg-slate-50 p-8 rounded-[28px] border border-slate-100 mt-8">
+                    <h4 className="text-lg font-extrabold text-slate-800 mb-6 flex items-center justify-between">
+                      <span className="flex items-center">
+                        <Sprout className="w-5 h-5 ml-3 text-green-600 animate-pulse" />
+                        בדיקות מעבדה מתקדמות (ניסוי צמח שלם / שטח)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTrialForm(!showTrialForm);
+                          if (showTrialForm && editingTrialId) {
                             setEditingTrialId(null);
                             setNewTrial({
                               isolateId: '',
@@ -883,134 +719,347 @@ export const LabDashboard: React.FC<LabDashboardProps> = ({ samples, onUpdateSta
                               notes: '',
                               user: 'חוקר מעבדה (AM)'
                             });
-                          }}
-                          className="px-4 py-2.5 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                          ביטול
-                        </button>
-                        <button
-                          type="button"
-                          onClick={addFieldTrial}
-                          className={`font-bold px-6 py-2.5 rounded-xl text-xs transition-all flex items-center gap-2 text-white shadow-sm ${editingTrialId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}
-                        >
-                          <Save className="w-4 h-4" />
-                          {editingTrialId ? 'עדכן ניסוי' : 'שמור ניסוי'}
-                        </button>
+                          }
+                        }}
+                        className="text-xs bg-white text-blue-600 hover:bg-blue-50 border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm font-bold"
+                      >
+                        {showTrialForm ? (
+                          <>
+                            <ChevronUp className="w-3.5 h-3.5" />
+                            סגור טופס
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            {editingTrialId ? 'ערוך ניסוי' : 'הוסף ניסוי שטח'}
+                          </>
+                        )}
+                      </button>
+                    </h4>
+
+                    {/* Field Trial Add/Edit Form */}
+                    {showTrialForm && (
+                      <div className={`mb-8 bg-white p-6 rounded-2xl border transition-all ${editingTrialId ? 'border-amber-200 shadow-md ring-4 ring-amber-50' : 'border-slate-100'}`}>
+                        <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">
+                          {editingTrialId ? 'עריכת פרטי ניסוי שטח' : 'פרטי ניסוי צמח שלם חדש'}
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 mr-1">מזהה תבדיד</label>
+                            <input
+                              type="text"
+                              value={newTrial.isolateId}
+                              onChange={(e) => setNewTrial({ ...newTrial, isolateId: e.target.value })}
+                              className="input-clean bg-slate-50 text-sm"
+                              placeholder="לדוגמה: ISO-001"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 mr-1">זן מארח (פונדקאי)</label>
+                            <input
+                              type="text"
+                              value={newTrial.plantVariety}
+                              onChange={(e) => setNewTrial({ ...newTrial, plantVariety: e.target.value })}
+                              className="input-clean bg-slate-50 text-sm"
+                              placeholder="לדוגמה: בלאק ביוטי"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 mr-1">מספר צמחים בניסוי</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={newTrial.plantCount}
+                              onChange={(e) => setNewTrial({ ...newTrial, plantCount: Number(e.target.value) })}
+                              className="input-clean bg-slate-50 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 mr-1">פיטוטוקסיות</label>
+                            <select
+                              value={newTrial.phytotoxicity}
+                              onChange={(e) => setNewTrial({ ...newTrial, phytotoxicity: e.target.value })}
+                              className="input-clean bg-slate-50 text-sm"
+                            >
+                              <option value="אין">אין</option>
+                              <option value="קלה">קלה</option>
+                              <option value="בינונית">בינונית</option>
+                              <option value="קשה">קשה</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 mr-1">תאריך זריעה/ביצוע</label>
+                            <input
+                              type="date"
+                              value={newTrial.testDate}
+                              onChange={(e) => setNewTrial({ ...newTrial, testDate: e.target.value })}
+                              className="input-clean bg-slate-50 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 mr-1">תאריך הדבקה</label>
+                            <input
+                              type="date"
+                              value={newTrial.inoculationDate}
+                              onChange={(e) => setNewTrial({ ...newTrial, inoculationDate: e.target.value })}
+                              className="input-clean bg-slate-50 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 mr-1">חומר הגנה / תכשיר</label>
+                            <input
+                              type="text"
+                              value={newTrial.treatmentMaterial}
+                              onChange={(e) => setNewTrial({ ...newTrial, treatmentMaterial: e.target.value })}
+                              className="input-clean bg-slate-50 text-sm"
+                              placeholder="שם התכשיר"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 mr-1">מינון (ריכוז / סמ"ק)</label>
+                            <input
+                              type="text"
+                              value={newTrial.dosage}
+                              onChange={(e) => setNewTrial({ ...newTrial, dosage: e.target.value })}
+                              className="input-clean bg-slate-50 text-sm"
+                              placeholder="לדוגמה: 0.2%"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Sliders for Disease Severity */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-xs font-bold">
+                              <span className="text-red-600 font-bold">חומרת מחלה בקבוצת ביקורת:</span>
+                              <span className="bg-red-50 text-red-600 px-2.5 py-0.5 rounded-lg">{newTrial.diseaseSeverityControl}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={newTrial.diseaseSeverityControl}
+                              onChange={(e) => handleSeverityChange('diseaseSeverityControl', Number(e.target.value))}
+                              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-500"
+                            />
+                            <p className="text-[10px] text-slate-400">אחוז הפגיעה בצמחים שלא טופלו בחומר (רמת ההדבקה)</p>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-xs font-bold">
+                              <span className="text-blue-600 font-bold">חומרת מחלה בקבוצה מטופלת:</span>
+                              <span className="bg-blue-50 text-blue-600 px-2.5 py-0.5 rounded-lg">{newTrial.diseaseSeverityTreated}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={newTrial.diseaseSeverityTreated}
+                              onChange={(e) => handleSeverityChange('diseaseSeverityTreated', Number(e.target.value))}
+                              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            />
+                            <p className="text-[10px] text-slate-400">אחוז הפגיעה בצמחים שטופלו בתכשיר</p>
+                          </div>
+                        </div>
+
+                        {/* Calculation results & Final conclusions */}
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6 items-center">
+                          <div className="md:col-span-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100/50 flex flex-col justify-center items-center h-full">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">יעילות הדברה מחושבת</span>
+                            <span className="text-2xl font-black text-blue-600 mt-1">{newTrial.efficacyRate}%</span>
+                          </div>
+
+                          <div className="md:col-span-4 space-y-2">
+                            <label className="text-xs font-bold text-slate-500 mr-1">מסקנת הניסוי</label>
+                            <select
+                              value={newTrial.conclusion}
+                              onChange={(e) => setNewTrial({ ...newTrial, conclusion: e.target.value as TrialConclusion })}
+                              className="input-clean bg-slate-50 text-sm font-bold"
+                            >
+                              <option value="רגיש בשטח">רגיש בשטח (יעיל ≥ 75%)</option>
+                              <option value="עמיד בשטח">עמיד בשטח (יעיל ≤ 40%)</option>
+                              <option value="תוצאה גבולית">תוצאה גבולית (41% - 74%)</option>
+                            </select>
+                          </div>
+
+                          <div className="md:col-span-4 space-y-2">
+                            <label className="text-xs font-bold text-slate-500 mr-1">הערות לניסוי</label>
+                            <input
+                              type="text"
+                              value={newTrial.notes || ''}
+                              onChange={(e) => setNewTrial({ ...newTrial, notes: e.target.value })}
+                              className="input-clean bg-slate-50 text-sm"
+                              placeholder="לדוגמה: סימני נבילה קלים"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowTrialForm(false);
+                              setEditingTrialId(null);
+                              setNewTrial({
+                                isolateId: '',
+                                plantVariety: '',
+                                plantCount: 5,
+                                testDate: new Date().toISOString().split('T')[0],
+                                inoculationDate: new Date().toISOString().split('T')[0],
+                                treatmentMaterial: '',
+                                dosage: '',
+                                diseaseSeverityControl: 80,
+                                diseaseSeverityTreated: 20,
+                                efficacyRate: 75,
+                                conclusion: 'רגיש בשטח',
+                                notes: '',
+                                user: 'חוקר מעבדה (AM)'
+                              });
+                            }}
+                            className="px-4 py-2.5 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            ביטול
+                          </button>
+                          <button
+                            type="button"
+                            onClick={addFieldTrial}
+                            className={`font-bold px-6 py-2.5 rounded-xl text-xs transition-all flex items-center gap-2 text-white shadow-sm ${editingTrialId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}
+                          >
+                            <Save className="w-4 h-4" />
+                            {editingTrialId ? 'עדכן ניסוי' : 'שמור ניסוי'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* List of existing trials */}
-                  {fieldTrials.length > 0 ? (
-                    <div className="space-y-4">
-                      {fieldTrials.map(trial => {
-                        const isResistant = trial.conclusion === 'עמיד בשטח';
-                        const isSensitive = trial.conclusion === 'רגיש בשטח';
-                        const isBorderline = trial.conclusion === 'תוצאה גבולית';
+                    {/* List of existing trials */}
+                    {fieldTrials.length > 0 ? (
+                      <div className="space-y-4">
+                        {fieldTrials.map(trial => {
+                          const isResistant = trial.conclusion === 'עמיד בשטח';
+                          const isSensitive = trial.conclusion === 'רגיש בשטח';
+                          const isBorderline = trial.conclusion === 'תוצאה גבולית';
 
-                        return (
-                          <div key={trial.id} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm hover:border-green-200 transition-all">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                              <div className="flex-1 space-y-3">
-                                {/* Header info */}
-                                <div className="flex flex-wrap items-center gap-3">
-                                  <span className="text-xs bg-slate-100 text-slate-700 font-black px-2.5 py-1 rounded-lg">
-                                    תבדיד: {trial.isolateId || 'לא מוגדר'}
-                                  </span>
-                                  <span className="text-xs text-slate-400">
-                                    {formatDate(trial.testDate)} • זן: {trial.plantVariety || 'לא מוגדר'} ({trial.plantCount} צמחים)
-                                  </span>
-                                  <span className={`text-xs font-black px-2.5 py-1 rounded-lg mr-auto md:mr-0 ${
-                                    isSensitive ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                                    isResistant ? 'bg-rose-50 text-rose-700 border border-rose-100' :
-                                    'bg-amber-50 text-amber-700 border border-amber-100'
-                                  }`}>
-                                    {trial.conclusion}
-                                  </span>
-                                </div>
-
-                                {/* Material and dosage details */}
-                                <div className="flex flex-wrap gap-6 items-center">
-                                  <div>
-                                    <span className="text-[10px] font-bold text-slate-400 block">תכשיר נבדק</span>
-                                    <span className="text-sm font-black text-slate-800">{trial.treatmentMaterial} ({trial.dosage})</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-[10px] font-bold text-slate-400 block">חומרת מחלה</span>
-                                    <span className="text-xs font-bold text-slate-600">ביקורת: {trial.diseaseSeverityControl}% | מטופל: {trial.diseaseSeverityTreated}%</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-[10px] font-bold text-slate-400 block">פיטוטוקסיות</span>
-                                    <span className={`text-xs font-bold ${trial.phytotoxicity !== 'אין' ? 'text-amber-600 font-extrabold' : 'text-slate-600'}`}>
-                                      {trial.phytotoxicity}
+                          return (
+                            <div key={trial.id} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm hover:border-green-200 transition-all">
+                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex-1 space-y-3">
+                                  {/* Header info */}
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <span className="text-xs bg-slate-100 text-slate-700 font-black px-2.5 py-1 rounded-lg">
+                                      תבדיד: {trial.isolateId || 'לא מוגדר'}
                                     </span>
-                                  </div>
-                                  {trial.notes && (
-                                    <div className="flex-1 min-w-[150px]">
-                                      <span className="text-[10px] font-bold text-slate-400 block">הערות</span>
-                                      <span className="text-xs text-slate-600 italic">{trial.notes}</span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Efficacy progress bar */}
-                                <div className="space-y-1.5">
-                                  <div className="flex justify-between text-xs font-bold">
-                                    <span className="text-slate-500">מדד יעילות הדברה:</span>
-                                    <span className={isSensitive ? 'text-emerald-600' : isResistant ? 'text-rose-600' : 'text-amber-600'}>
-                                      {trial.efficacyRate}%
+                                    <span className="text-xs text-slate-400">
+                                      {formatDate(trial.testDate)} • זן: {trial.plantVariety || 'לא מוגדר'} ({trial.plantCount} צמחים)
                                     </span>
-                                  </div>
-                                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
-                                    <div
-                                      style={{ width: `${Math.max(0, Math.min(100, trial.efficacyRate))}%` }}
-                                      className={`h-full rounded-full transition-all ${
-                                        isSensitive ? 'bg-emerald-500' :
-                                        isResistant ? 'bg-rose-500' :
-                                        'bg-amber-500'
+                                    <span className={`text-xs font-black px-2.5 py-1 rounded-lg mr-auto md:mr-0 ${
+                                      isSensitive ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                      isResistant ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                                      'bg-amber-50 text-amber-700 border border-amber-100'
+                                    }`}>
+                                      {trial.conclusion}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => togglePublishFieldTrial(trial.id)}
+                                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border outline-none mr-auto md:mr-0 ${
+                                        trial.published
+                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                          : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'
                                       }`}
-                                    />
+                                      title={trial.published ? 'לחץ כדי לבטל פרסום מהמפה' : 'לחץ כדי לפרסם במפת דף הבית'}
+                                    >
+                                      <Globe className={`w-3.5 h-3.5 ${trial.published ? 'text-emerald-600 animate-pulse' : 'text-slate-400'}`} />
+                                      <span>{trial.published ? 'מפורסם במפה' : 'לא מפורסם'}</span>
+                                    </button>
+                                  </div>
+
+                                  {/* Material and dosage details */}
+                                  <div className="flex flex-wrap gap-6 items-center">
+                                    <div>
+                                      <span className="text-[10px] font-bold text-slate-400 block">תכשיר נבדק</span>
+                                      <span className="text-sm font-black text-slate-800">{trial.treatmentMaterial} ({trial.dosage})</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-[10px] font-bold text-slate-400 block">חומרת מחלה</span>
+                                      <span className="text-xs font-bold text-slate-600">ביקורת: {trial.diseaseSeverityControl}% | מטופל: {trial.diseaseSeverityTreated}%</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-[10px] font-bold text-slate-400 block">פיטוטוקסיות</span>
+                                      <span className={`text-xs font-bold ${trial.phytotoxicity !== 'אין' ? 'text-amber-600 font-extrabold' : 'text-slate-600'}`}>
+                                        {trial.phytotoxicity}
+                                      </span>
+                                    </div>
+                                    {trial.notes && (
+                                      <div className="flex-1 min-w-[150px]">
+                                        <span className="text-[10px] font-bold text-slate-400 block">הערות</span>
+                                        <span className="text-xs text-slate-600 italic">{trial.notes}</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Efficacy progress bar */}
+                                  <div className="space-y-1.5">
+                                    <div className="flex justify-between text-xs font-bold">
+                                      <span className="text-slate-500">מדד יעילות הדברה:</span>
+                                      <span className={isSensitive ? 'text-emerald-600' : isResistant ? 'text-rose-600' : 'text-amber-600'}>
+                                        {trial.efficacyRate}%
+                                      </span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
+                                      <div
+                                        style={{ width: `${Math.max(0, Math.min(100, trial.efficacyRate))}%` }}
+                                        className={`h-full rounded-full transition-all ${
+                                          isSensitive ? 'bg-emerald-500' :
+                                          isResistant ? 'bg-rose-500' :
+                                          'bg-amber-500'
+                                        }`}
+                                      />
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
 
-                              {/* Action buttons */}
-                              <div className="flex items-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 md:border-r border-slate-100 md:pr-4 md:mr-4 justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() => editFieldTrial(trial)}
-                                  className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-50 transition-colors"
-                                  title="ערוך ניסוי"
-                                >
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeFieldTrial(trial.id)}
-                                  className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-50 transition-colors"
-                                  title="מחק ניסוי"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                {/* Action buttons */}
+                                <div className="flex items-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 md:border-r border-slate-100 md:pr-4 md:mr-4 justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => editFieldTrial(trial)}
+                                    className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-50 transition-colors"
+                                    title="ערוך ניסוי"
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeFieldTrial(trial.id)}
+                                    className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-50 transition-colors"
+                                    title="מחק ניסוי"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center p-8 bg-white rounded-2xl border border-dashed border-slate-200">
-                      <p className="text-sm text-slate-400 font-medium">טרם בוצעו ניסויי צמח שלם/שטח עבור דגימה זו.</p>
-                      <button
-                        type="button"
-                        onClick={() => setShowTrialForm(true)}
-                        className="mt-3 text-xs text-blue-600 hover:text-blue-700 font-bold underline"
-                      >
-                        לחץ כאן להוספת הניסוי הראשון
-                      </button>
-                    </div>
-                  )}
-                </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center p-8 bg-white rounded-2xl border border-dashed border-slate-200">
+                        <p className="text-sm text-slate-400 font-medium">טרם בוצעו ניסויי צמח שלם/שטח עבור דגימה זו.</p>
+                        <button
+                          type="button"
+                          onClick={() => setShowTrialForm(true)}
+                          className="mt-3 text-xs text-blue-600 hover:text-blue-700 font-bold underline"
+                        >
+                          לחץ כאן להוספת הניסוי הראשון
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex flex-col md:flex-row gap-4">
                   {/* Archive Button (Only visible if not already archived) */}

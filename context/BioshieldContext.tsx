@@ -227,7 +227,8 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                         oldTest.material !== newTest.material ||
                         oldTest.dosage !== newTest.dosage ||
                         oldTest.category !== newTest.category ||
-                        oldTest.notes !== newTest.notes;
+                        oldTest.notes !== newTest.notes ||
+                        oldTest.published !== newTest.published;
 
                     if (hasChanged) {
                         updatedTests.push(newTest);
@@ -285,7 +286,8 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                             oldTrial.efficacyRate !== newTrial.efficacyRate ||
                             oldTrial.phytotoxicity !== newTrial.phytotoxicity ||
                             oldTrial.conclusion !== newTrial.conclusion ||
-                            oldTrial.notes !== newTrial.notes;
+                            oldTrial.notes !== newTrial.notes ||
+                            oldTrial.published !== newTrial.published;
 
                         if (hasChanged) {
                             updatedTrials.push(newTrial);
