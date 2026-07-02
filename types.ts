@@ -168,3 +168,85 @@ export interface FieldTrialTest {
   user: string;
   published?: boolean;
 }
+
+// Guidelines CMS Types
+export interface GuidelinesTheme {
+  fontFamily: string;
+  primaryColor: string;
+  backgroundColor: string;
+  titleSize: number; // in pixels or custom ranges
+  textSize: number;  // in pixels or custom ranges
+  alignment: 'right' | 'left' | 'center';
+  showShadow: boolean;
+  showBorder: boolean;
+}
+
+export type BlockType = 'text' | 'title' | 'list' | 'image' | 'file' | 'link' | 'card' | 'warning' | 'embed';
+
+export interface GuidelinesBlock {
+  id: string;
+  type: BlockType;
+  title: string;
+  content: string; // Sanitized HTML content for editable content
+  isHidden: boolean;
+  isCollapsed?: boolean;
+  icon?: string;
+  customBgColor?: string; // hex color or custom color override
+  customBorderColor?: string; // hex color or custom border override
+  createdAt: string; // ISO string
+  createdBy: string;
+  updatedAt: string; // ISO string
+  updatedBy: string;
+  data: {
+    mediaId?: string; // Reference to the guidelines_media document
+    imageTitle?: string;
+    altText?: string;
+    fileName?: string;
+    fileSize?: string;
+    fileDesc?: string;
+    url?: string;
+    embedType?: 'youtube' | 'google-maps' | 'google-drive';
+    items?: string[]; // Used for list items
+  };
+}
+
+export interface GuidelinesDocument {
+  schemaVersion: number;
+  theme: GuidelinesTheme;
+  blocks: GuidelinesBlock[];
+  draftVersion: number;
+  publishedVersion: number;
+  updatedAt: any; // Firestore serverTimestamp or Date/string
+  updatedBy: string;
+  publishedAt?: any;
+  publishedBy?: string;
+}
+
+export interface GuidelinesMedia {
+  id: string;
+  base64: string;
+  type: string; // mime type, e.g. image/jpeg, application/pdf
+  fileName: string;
+  fileSize: number; // bytes
+  altText: string;
+  createdAt: any;
+  createdBy: string;
+}
+
+export interface GuidelinesRevision {
+  id: string;
+  type: 'published_backup';
+  blocks: GuidelinesBlock[];
+  theme: GuidelinesTheme;
+  version: number;
+  timestamp: any;
+  createdBy: string;
+}
+
+export interface GuidelinesAuditEvent {
+  id: string;
+  action: 'draft_saved' | 'published' | 'restored' | 'media_uploaded' | 'media_deleted' | 'validation_failed';
+  timestamp: any;
+  user: string;
+}
+

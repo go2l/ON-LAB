@@ -31,6 +31,13 @@ service cloud.firestore {
       );
     }
 
+    // Helper: check if user is ohad126@gmail.com
+    function isOhad() {
+      return isAuthenticated() && 
+        request.auth.token.email != null && 
+        request.auth.token.email.lower() == 'ohad126@gmail.com';
+    }
+
     // Whitelist Collection:
     // - Read: Authenticated users can check if they are whitelisted
     // - Write: Only Admins can add/remove emails
@@ -70,6 +77,27 @@ service cloud.firestore {
     match /activity_logs/{logId} {
       allow create: if isAuthenticated(); // Anyone logged in can generate a log
       allow read: if isAdmin();
+    }
+
+    // Guidelines CMS Collections:
+    match /guidelines/{documentId} {
+      allow read: if true;
+      allow write: if isOhad();
+    }
+
+    match /guidelines_revisions/{revisionId} {
+      allow read: if true;
+      allow write: if isOhad();
+    }
+
+    match /guidelines_media/{mediaId} {
+      allow read: if true;
+      allow write: if isOhad();
+    }
+
+    match /guidelines_audit/{auditId} {
+      allow read: if true;
+      allow write: if isOhad();
     }
   }
 }
