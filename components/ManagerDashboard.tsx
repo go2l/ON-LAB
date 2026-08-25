@@ -714,8 +714,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                 <div key={cat} className="flex items-center group cursor-default">
                   <div className="w-4 h-4 rounded-full ml-4 shadow-sm transition-transform group-hover:scale-125" style={{ backgroundColor: color }} />
                   <div className="flex flex-col">
-                    <span className="text-slate-700 font-bold text-sm leading-none mb-1">{cat}</span>
-                    <span className="text-xs text-slate-400">לפי תקן ניטור 2026</span>
+                    <span className="text-slate-700 font-bold text-sm leading-none">{cat}</span>
                   </div>
                 </div>
               ))}
