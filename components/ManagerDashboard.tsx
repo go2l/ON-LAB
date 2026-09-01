@@ -158,15 +158,8 @@ const ClusterLayer: React.FC<{
         const primarySample = group.samples[0]; // Leader sample
 
         // Color logic
-        let worstResInGroup = undefined;
-        for (const s of group.samples) {
-          const w = getWorstResistance(results[s.id]);
-          if (w === ResistanceCategory.R) worstResInGroup = w;
-          else if (w === ResistanceCategory.T && worstResInGroup !== ResistanceCategory.R) worstResInGroup = w;
-        }
-        if (!worstResInGroup) {
-          worstResInGroup = getWorstResistance(results[primarySample.id]);
-        }
+        const allTestsForGroup = group.samples.flatMap(s => results[s.id] || []);
+        const worstResInGroup = getWorstResistance(allTestsForGroup);
 
         const color = worstResInGroup ? RESISTANCE_COLORS[worstResInGroup] : '#94a3b8';
         const isSelected = group.samples.some(s => s.id === selectedSample?.id);
