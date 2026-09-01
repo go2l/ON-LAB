@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, LayersControl, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-
+import { ARCGIS_API_KEY } from '../constants';
 interface LocationPickerProps {
     initialLat: number;
     initialLng: number;
@@ -78,13 +78,13 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ initialLat, init
                         <LayerGroup>
                             <TileLayer
                                 attribution='Tiles &copy; Esri &mdash; &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                url={`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_API_KEY}`}
                             />
                             <TileLayer
-                                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+                                url={`https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_API_KEY}`}
                             />
                             <TileLayer
-                                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                url={`https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_API_KEY}`}
                             />
                         </LayerGroup>
                     </LayersControl.BaseLayer>

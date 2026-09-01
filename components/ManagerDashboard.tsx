@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Sample, ResistanceCategory, SensitivityTest, PesticideTreatment, ApplicationMethod, Region } from '../types';
-import { RESISTANCE_COLORS } from '../constants';
+import { RESISTANCE_COLORS, ARCGIS_API_KEY } from '../constants';
 import { X, MapPin, Search, Database, AlertCircle, ChevronLeft, ShieldCheck, Trash2, List, Edit2, Save, Plus, SprayCan, ShieldAlert, Sprout } from 'lucide-react';
 import { useBioshield } from '../context/BioshieldContext';
 import { useAuth } from '../context/AuthContext';
@@ -427,13 +427,13 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
                 <LayerGroup>
                   <TileLayer
                     attribution='Tiles &copy; Esri &mdash; &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    url={`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_API_KEY}`}
                   />
                   <TileLayer
-                    url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+                    url={`https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_API_KEY}`}
                   />
                   <TileLayer
-                    url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                    url={`https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_API_KEY}`}
                   />
                 </LayerGroup>
               </LayersControl.BaseLayer>
