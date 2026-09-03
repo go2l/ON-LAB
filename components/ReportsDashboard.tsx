@@ -80,6 +80,18 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
 
     // 4. Data Generation Helpers
     const generateSheetData = (sheet: SheetConfig) => {
+        // Find all unique materials AND dosages that were actually tested
+        const testedTestsMap = new Map<string, { material: string, dosage: string }>();
+        filteredSamples.forEach(s => {
+            (s.results || []).forEach(t => {
+                const key = `${t.material}|${t.dosage}`;
+                if (!testedTestsMap.has(key)) {
+                    testedTestsMap.set(key, { material: t.material, dosage: t.dosage });
+                }
+            });
+        });
+        const uniqueTests = Array.from(testedTestsMap.values()).sort((a, b) => a.material.localeCompare(b.material) || a.dosage.localeCompare(b.dosage));
+
         switch (sheet.type) {
             case 'SAMPLES_FULL':
                 return filteredSamples.map(sample => {
@@ -87,7 +99,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
                     const worst = sampleResults.find(t => t.category === ResistanceCategory.R) ? 'R' :
                         sampleResults.find(t => t.category === ResistanceCategory.T) ? 'T' : '';
 
-                    return {
+                    const row: any = {
                         'מזהה דגימה': sample.internalId,
                         'סטטוס': sample.status,
                         'סטטוס דגימה במעבדה': sample.labStatus || 'פעילה',
@@ -109,6 +121,19 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
                         'מספר בדיקות': sampleResults.length,
                         'קטגוריית עמידות': worst
                     };
+
+                    // Add columns for each tested material and dosage
+                    uniqueTests.forEach(testDef => {
+                        const testForMat = sampleResults.find(t => t.material === testDef.material && t.dosage === testDef.dosage);
+                        const colName = `${testDef.material} (${testDef.dosage} PPM)`;
+                        if (testForMat) {
+                            row[`${colName} - תוצאה`] = testForMat.category;
+                        } else {
+                            row[`${colName} - תוצאה`] = '-';
+                        }
+                    });
+
+                    return row;
                 });
 
             case 'LAB_RESULTS':
@@ -120,7 +145,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
                         'מינון (PPM)': test.dosage,
                         'קטגוריה': test.category,
                         'תאריך בדיקה': formatDate(test.date),
-                        'מבצע': test.user,
+                        'מבצע': test.user ? test.user.split('@')[0] : '-',
                         'הערות': test.notes || '-'
                     }));
                 });
@@ -162,7 +187,8 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
                     sampleResults.forEach(test => {
                         if (test.category === ResistanceCategory.R) {
                             isAnyResistant = true;
-                            group.materials[test.material] = (group.materials[test.material] || 0) + 1;
+                            const testKey = `${test.material}|${test.dosage}`;
+                            group.materials[testKey] = (group.materials[testKey] || 0) + 1;
                         }
                     });
 
@@ -181,11 +207,13 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ samples, res
                         'אחוז עמידות': `${((g.resistant / g.total) * 100).toFixed(1)}%`
                     };
 
-                    ACTIVE_INGREDIENTS.forEach(mat => {
-                        const count = g.materials[mat] || 0;
+                    uniqueTests.forEach(testDef => {
+                        const testKey = `${testDef.material}|${testDef.dosage}`;
+                        const count = g.materials[testKey] || 0;
                         const pct = g.total > 0 ? ((count / g.total) * 100).toFixed(1) : "0.0";
-                        row[`עמידות ל-${mat} (כמות)`] = count;
-                        row[`עמידות ל-${mat} (%)`] = `${pct}%`;
+                        const colName = `${testDef.material} (${testDef.dosage} PPM)`;
+                        row[`עמידות ל-${colName} (כמות)`] = count;
+                        row[`עמידות ל-${colName} (%)`] = `${pct}%`;
                     });
 
                     summary.push(row);
