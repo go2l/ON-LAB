@@ -39,10 +39,10 @@ service cloud.firestore {
     }
 
     // Whitelist Collection:
-    // - Read: Authenticated users can check if they are whitelisted
-    // - Write: Only Admins can add/remove emails
+    // - Read: Admins can read all whitelist records; non-admins can only read their own document
+    // - Write: Only Admins can add/modify/remove records
     match /whitelist/{email} {
-      allow read: if isAuthenticated();
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.token.email.lower() == email);
       allow write: if isAdmin();
     }
 

@@ -139,8 +139,16 @@ export const ActivityLogPage: React.FC = () => {
             UPDATE_RESULTS: 'עדכון תוצאות מעבדה',
             PUBLISH_MAP: 'פרסום תוצאה למפה',
             UNPUBLISH_MAP: 'הסרת פרסום ממפה',
-            LOGIN: 'התחברות מערכת',
-            UPDATE_GUIDELINES: 'עדכון הנחיות גידול'
+            UPDATE_GUIDELINES: 'עדכון הנחיות גידול',
+            ADD_USER: 'הוספת משתמש',
+            UPDATE_USER: 'עדכון פרטי משתמש',
+            DELETE_USER: 'הסרת משתמש',
+            email: 'כתובת אימייל',
+            role: 'תפקיד במערכת',
+            fullName: 'שם מלא',
+            occupation: 'עיסוק / תפקיד',
+            company: 'חברה / ארגון',
+            phone: 'טלפון'
         };
         return dictionary[key] || key;
     };
