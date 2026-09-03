@@ -457,15 +457,14 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ samples, res
           </MapContainer>
 
           {selectedSample && (
-            <div className="absolute bottom-6 right-6 left-6 md:left-auto md:w-96 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl animate-fade-in z-[1000] overflow-hidden max-h-[80vh] overflow-y-auto scrollbar-thin">
+            <div className="absolute bottom-6 right-6 left-6 md:left-auto md:w-96 bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl animate-fade-in z-[1000] overflow-hidden max-h-[calc(100%-3rem)] overflow-y-auto scrollbar-thin">
               <div className="absolute top-0 right-0 left-0 h-1.5" style={{ backgroundColor: results[selectedSample.id] && getWorstResistance(results[selectedSample.id]) ? RESISTANCE_COLORS[getWorstResistance(results[selectedSample.id])!] : '#cbd5e1' }}></div>
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h4 className="font-black text-xl text-slate-800">{selectedSample.internalId}</h4>
-                  <p className="text-sm font-bold text-blue-600">{selectedSample.region}</p>
+              <div className="flex justify-between items-start gap-2 mb-6">
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-black text-xl text-slate-800 truncate">{selectedSample.internalId}</h4>
+                  <p className="text-sm font-bold text-blue-600 truncate">{selectedSample.region}</p>
                 </div>
-                <div className="flex items-center gap-2 border-2 border-red-500 p-1 rounded-lg">
-                  {/* DEBUG BORDER ABOVE */}
+                <div className="flex items-center gap-1 shrink-0">
                   {(isAdmin || user?.email === 'ohad126@gmail.com') ? (
                     isEditing ? (
                       <>
