@@ -244,13 +244,31 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                 description: `בדיקה נוספה: ${test.material} - ${test.dosage} PPM - ${test.category}`
             }));
 
-            const updatedEvents: SampleEvent[] = updatedTests.map(test => ({
-                id: `ev-${Date.now()}-upd-${test.id}`,
-                timestamp: new Date().toISOString(),
-                type: 'RESULT_UPDATED',
-                user: test.user || 'חוקר מעבדה',
-                description: `עדכון תוצאה קיים: ${test.material} - ${test.dosage} PPM - ${test.category}`
-            }));
+            const updatedEvents: SampleEvent[] = updatedTests.map(test => {
+                const oldTest = oldResultsMap.get(test.id);
+                let desc = `עדכון תוצאה קיים: ${test.material} - ${test.dosage} PPM - ${test.category}`;
+                let evtType = 'RESULT_UPDATED';
+
+                if (oldTest) {
+                    const isOnlyPublishToggle = oldTest.published !== test.published &&
+                        oldTest.material === test.material &&
+                        oldTest.dosage === test.dosage &&
+                        oldTest.category === test.category;
+
+                    if (isOnlyPublishToggle) {
+                        desc = test.published ? `פרסום תוצאה במפה: ${test.material}` : `הסרת פרסום מהמפה: ${test.material}`;
+                        evtType = test.published ? 'PUBLISHED_TO_MAP' : 'UNPUBLISHED_FROM_MAP';
+                    }
+                }
+
+                return {
+                    id: `ev-${Date.now()}-upd-${test.id}`,
+                    timestamp: new Date().toISOString(),
+                    type: evtType,
+                    user: test.user || 'חוקר מעבדה',
+                    description: desc
+                };
+            });
 
             // Sanitize events too
             const sanitizedEvents = [...addedEvents, ...updatedEvents].map(e => sanitize(e) as SampleEvent);
@@ -258,6 +276,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             // Field Trials logic
             const fieldTrialEvents: SampleEvent[] = [];
             const sanitizedFieldTrials = fieldTrials ? fieldTrials.map(t => sanitize(t) as FieldTrialTest) : undefined;
+            let addedTrialsCount = 0;
 
             if (sanitizedFieldTrials) {
                 const oldFieldTrials = sample.fieldTrials || [];
@@ -295,6 +314,8 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                     }
                 });
 
+                addedTrialsCount = addedTrials.length;
+
                 oldFieldTrials.forEach(oldTrial => {
                     if (!currentTrialIds.has(oldTrial.id)) {
                         removedTrials.push(oldTrial);
@@ -307,17 +328,29 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                         timestamp: new Date().toISOString(),
                         type: 'RESULT_ADDED',
                         user: t.user || 'חוקר מעבדה',
-                        description: `ניסוי צמח שלם (בדיקה מתקדמת) נוסף: ${t.treatmentMaterial} (${t.dosage}) - יעילות ${t.efficacyRate}% - ${t.conclusion}`
+                        description: `ניסוי צמח שלם נוסף: ${t.treatmentMaterial} (${t.dosage}) - יעילות ${t.efficacyRate}%`
                     });
                 });
 
                 updatedTrials.forEach(t => {
+                    const oldTrial = oldFieldTrialsMap.get(t.id);
+                    let desc = `ניסוי צמח שלם עודכן: ${t.treatmentMaterial} (${t.dosage}) - יעילות ${t.efficacyRate}%`;
+                    let evtType = 'RESULT_UPDATED';
+                    
+                    if (oldTrial && oldTrial.published !== t.published && oldTrial.treatmentMaterial === t.treatmentMaterial) {
+                         const isOnlyPublish = oldTrial.diseaseSeverityControl === t.diseaseSeverityControl;
+                         if (isOnlyPublish) {
+                             desc = t.published ? `פרסום ניסוי צמח שלם במפה: ${t.treatmentMaterial}` : `הסרת ניסוי צמח שלם מהמפה: ${t.treatmentMaterial}`;
+                             evtType = t.published ? 'PUBLISHED_TO_MAP' : 'UNPUBLISHED_FROM_MAP';
+                         }
+                    }
+
                     fieldTrialEvents.push({
                         id: `ev-${Date.now()}-ft-upd-${t.id}`,
                         timestamp: new Date().toISOString(),
-                        type: 'RESULT_UPDATED',
+                        type: evtType,
                         user: t.user || 'חוקר מעבדה',
-                        description: `ניסוי צמח שלם (בדיקה מתקדמת) עודכן: ${t.treatmentMaterial} (${t.dosage}) - יעילות ${t.efficacyRate}% - ${t.conclusion}`
+                        description: desc
                     });
                 });
 
@@ -327,7 +360,7 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
                         timestamp: new Date().toISOString(),
                         type: 'RESULT_UPDATED',
                         user: 'חוקר מעבדה',
-                        description: `ניסוי צמח שלם (בדיקה מתקדמת) נמחק: ${t.treatmentMaterial}`
+                        description: `ניסוי צמח שלם נמחק: ${t.treatmentMaterial}`
                     });
                 });
             }
@@ -375,7 +408,39 @@ export const BioshieldProvider: React.FC<{ children: ReactNode }> = ({ children 
             const sampleRef = doc(db, 'samples', sampleId);
             await updateDoc(sampleRef, updates);
             console.log(`[addResult] Successfully updated ${sampleId}`);
-            await logActivity('ADD_RESULT', { sampleId, resultsCount: sanitizedResults.length, fieldTrialsCount: sanitizedFieldTrials ? sanitizedFieldTrials.length : 0, newStatus });
+
+            // -------------------------------------------------------------
+            // Smarter Activity Logging
+            // -------------------------------------------------------------
+            let logAction = 'UPDATE_RESULTS';
+            const logDetails: any = { sampleId, internalId: sample.internalId };
+
+            if (addedTests.length > 0 || addedTrialsCount > 0) {
+                logAction = 'ADD_RESULTS';
+                if (addedTests.length > 0) logDetails.addedLabTests = addedTests.length;
+                if (addedTrialsCount > 0) logDetails.addedFieldTrials = addedTrialsCount;
+            } else if (updatedTests.length > 0) {
+                const oldTest = oldResultsMap.get(updatedTests[0].id);
+                if (oldTest) {
+                    const isOnlyPublishToggle = oldTest.published !== updatedTests[0].published &&
+                        oldTest.material === updatedTests[0].material &&
+                        oldTest.dosage === updatedTests[0].dosage &&
+                        oldTest.category === updatedTests[0].category;
+
+                    if (isOnlyPublishToggle) {
+                        logAction = updatedTests[0].published ? 'PUBLISH_MAP' : 'UNPUBLISH_MAP';
+                        logDetails.material = updatedTests[0].material;
+                    } else {
+                        logDetails.updatedResults = updatedTests.length;
+                    }
+                }
+            } else {
+                // If just changing status
+                if (newStatus && newStatus !== sample.status) logDetails.newStatus = newStatus;
+                if (labStatus && labStatus !== sample.labStatus) logDetails.labStatus = labStatus;
+            }
+
+            await logActivity(logAction, logDetails);
         } catch (e) {
             console.error("Error adding results: ", e);
             alert("Error saving results: " + e); // Temporary alert for debugging

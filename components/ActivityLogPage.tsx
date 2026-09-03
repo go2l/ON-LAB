@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, limit, getDocs, where, Timestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { LogEntry } from '../utils/logging';
-import { Calendar, Filter, Download, Search, ShieldAlert, User, Clock, CheckCircle2, XCircle, FileSpreadsheet, Eye } from 'lucide-react';
+import { Calendar, Filter, Download, Search, ShieldAlert, User, Clock, CheckCircle2, XCircle, FileSpreadsheet, Eye, Maximize2, Minimize2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export const ActivityLogPage: React.FC = () => {
@@ -13,6 +13,7 @@ export const ActivityLogPage: React.FC = () => {
     const [filterUser, setFilterUser] = useState('');
     const [filterAction, setFilterAction] = useState('ALL');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [isFullScreen, setIsFullScreen] = useState(false);
 
     useEffect(() => {
         setLoading(true);
@@ -92,11 +93,101 @@ export const ActivityLogPage: React.FC = () => {
     };
 
     const getActionColor = (action: string) => {
-        if (action.includes('DELETE')) return 'bg-red-100 text-red-700 border-red-200';
+        if (action.includes('DELETE') || action.includes('UNPUBLISH')) return 'bg-red-100 text-red-700 border-red-200';
         if (action.includes('UPDATE')) return 'bg-amber-100 text-amber-700 border-amber-200';
         if (action.includes('LOGIN')) return 'bg-blue-100 text-blue-700 border-blue-200';
-        if (action.includes('CREATE') || action.includes('ADD')) return 'bg-green-100 text-green-700 border-green-200';
+        if (action.includes('CREATE') || action.includes('ADD') || action.includes('PUBLISH_MAP')) return 'bg-green-100 text-green-700 border-green-200';
         return 'bg-slate-100 text-slate-700 border-slate-200';
+    };
+
+    const translateKey = (key: string): string => {
+        const dictionary: Record<string, string> = {
+            sampleId: 'מזהה דגימה (ID)',
+            internalId: 'מזהה פנימי',
+            status: 'סטטוס',
+            labStatus: 'סטטוס מעבדה',
+            result: 'תוצאה',
+            material: 'חומר הדברה',
+            dosage: 'מינון',
+            category: 'קטגוריה',
+            sheet: 'גיליון',
+            sheets: 'גיליונות',
+            type: 'סוג',
+            updates: 'עדכונים',
+            previous: 'ערך קודם',
+            new: 'ערך חדש',
+            oldValue: 'ערך ישן',
+            newValue: 'ערך חדש',
+            date: 'תאריך',
+            region: 'אזור',
+            crop: 'גידול',
+            pathogen: 'פתוגן',
+            notes: 'הערות',
+            id: 'מזהה',
+            user: 'משתמש',
+            timestamp: 'זמן',
+            published: 'פורסם',
+            pesticideHistory: 'היסטוריית הדברה',
+            addedLabTests: 'בדיקות מעבדה שנוספו',
+            updatedResults: 'תוצאות שעודכנו',
+            newStatus: 'סטטוס חדש',
+            CREATE_SAMPLE: 'יצירת דגימה',
+            UPDATE_STATUS: 'עדכון סטטוס',
+            TOGGLE_ARCHIVE: 'העברה/שחזור מארכיון',
+            DELETE_SAMPLE: 'מחיקת דגימה',
+            ADD_RESULTS: 'הוספת תוצאות מעבדה',
+            UPDATE_RESULTS: 'עדכון תוצאות מעבדה',
+            PUBLISH_MAP: 'פרסום תוצאה למפה',
+            UNPUBLISH_MAP: 'הסרת פרסום ממפה',
+            LOGIN: 'התחברות מערכת',
+            UPDATE_GUIDELINES: 'עדכון הנחיות גידול'
+        };
+        return dictionary[key] || key;
+    };
+
+    const formatValue = (val: any): React.ReactNode => {
+        if (val === null || val === undefined) return 'ריק';
+        if (typeof val === 'boolean') return val ? 'כן' : 'לא';
+        if (typeof val === 'object') {
+            if (Array.isArray(val)) {
+                if (val.length === 0) return 'ריק';
+                return (
+                    <ul className="list-disc list-inside pr-2">
+                        {val.map((item, idx) => (
+                            <li key={idx} className="my-1">{formatValue(item)}</li>
+                        ))}
+                    </ul>
+                );
+            }
+            if (Object.keys(val).length === 0) return 'ריק';
+            return (
+                <div className="mr-2 pr-3 border-r-2 border-slate-200 space-y-2 my-2 bg-slate-50/50 p-2 rounded-l-lg">
+                    {Object.entries(val).map(([k, v]) => (
+                        <div key={k} className="flex flex-col sm:flex-row sm:gap-2">
+                            <span className="font-bold text-slate-600 min-w-[80px] shrink-0">{translateKey(k)}:</span>
+                            <span className="text-slate-800 break-words flex-1">{formatValue(v)}</span>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+        return String(val);
+    };
+
+    const renderDetails = (details: any) => {
+        if (!details || Object.keys(details).length === 0) return <span className="text-slate-400 text-xs font-medium">אין פרטים נוספים</span>;
+        return (
+            <div className="space-y-2 text-xs w-full">
+                {Object.entries(details).map(([key, value]) => (
+                    <div key={key} className="bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md hover:border-blue-100">
+                        <span className="font-black text-blue-800 block mb-1.5">{translateKey(key)}</span>
+                        <div className="text-slate-700">
+                            {formatValue(value)}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
     };
 
     return (
@@ -201,15 +292,39 @@ export const ActivityLogPage: React.FC = () => {
                 </div>
 
                 {/* Logs Table */}
-                <div className="flex-1 bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-right">
-                            <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase sticky top-0">
+                <div className={`bg-white rounded-[32px] border border-slate-200 shadow-sm flex flex-col transition-all duration-300 ${
+                    isFullScreen 
+                        ? 'fixed inset-2 md:inset-6 z-[9999] shadow-2xl overflow-hidden' 
+                        : 'flex-1 min-w-0 min-h-[500px]'
+                }`}>
+                    <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/50">
+                        <h3 className="font-bold text-slate-700 px-2">רשומות</h3>
+                        <button 
+                            onClick={() => setIsFullScreen(!isFullScreen)}
+                            className="p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-500 hover:text-slate-800 flex items-center gap-2 text-xs font-bold"
+                            title={isFullScreen ? "הקטן תצוגה" : "תצוגה רחבה"}
+                        >
+                            {isFullScreen ? (
+                                <>
+                                    <Minimize2 className="w-4 h-4" />
+                                    <span>הקטן תצוגה</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Maximize2 className="w-4 h-4" />
+                                    <span>מסך מלא</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    <div className="overflow-auto flex-1">
+                        <table className="w-full text-sm text-right relative">
+                            <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase sticky top-0 z-10 shadow-sm">
                                 <tr>
-                                    <th className="px-6 py-4">זמן</th>
-                                    <th className="px-6 py-4">משתמש</th>
-                                    <th className="px-6 py-4">פעולה</th>
-                                    <th className="px-6 py-4">פרטים</th>
+                                    <th className="px-6 py-4 w-[15%]">זמן</th>
+                                    <th className="px-6 py-4 w-[20%]">משתמש</th>
+                                    <th className="px-6 py-4 w-[15%]">פעולה</th>
+                                    <th className="px-6 py-4 w-[50%]">פרטים</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -228,7 +343,7 @@ export const ActivityLogPage: React.FC = () => {
                                     </tr>
                                 ) : (
                                     filteredLogs.map((log) => (
-                                        <tr key={log.id} className="hover:bg-slate-50 transition-colors group">
+                                        <tr key={log.id} className="hover:bg-slate-50 transition-colors group align-top">
                                             <td className="px-6 py-4 text-slate-500 whitespace-nowrap" dir="ltr">
                                                 {new Date(log.timestamp).toLocaleString('he-IL')}
                                             </td>
@@ -237,13 +352,13 @@ export const ActivityLogPage: React.FC = () => {
                                                 <div className="text-xs text-slate-400" dir="ltr">{log.userId}</div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2 py-1 rounded-lg text-xs font-bold border ${getActionColor(log.action)}`}>
-                                                    {log.action}
+                                                <span className={`inline-block px-2 py-1 rounded-lg text-xs font-bold border ${getActionColor(log.action)}`}>
+                                                    {translateKey(log.action)}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 font-mono max-w-md overflow-x-auto">
-                                                    {JSON.stringify(log.details)}
+                                                <div className="bg-slate-50/50 p-3 rounded-2xl border border-slate-100">
+                                                    {renderDetails(log.details)}
                                                 </div>
                                             </td>
                                         </tr>
