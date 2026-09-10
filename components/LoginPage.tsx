@@ -67,7 +67,7 @@ export const LoginPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-            <p className="mt-6 text-slate-400 text-sm">© 2026 ON-LAB-IL</p>
+            <p className="mt-6 text-slate-400 text-sm">© {new Date().getFullYear()} ON-LAB-IL</p>
         </div>
     );
 };

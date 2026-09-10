@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from 'firebase/auth';
@@ -26,9 +26,29 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
+  const [currentDateTime, setCurrentDateTime] = useState<Date>(() => new Date());
   const location = useLocation();
   const navigate = useNavigate();
   const { user, role, isAdmin, isSampler } = useAuth();
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedDate = currentDateTime.toLocaleDateString('he-IL', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const formattedTime = currentDateTime.toLocaleTimeString('he-IL', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 
   // Helper to check if a route is active
   const isActive = (path: string) => location.pathname === path;
@@ -195,7 +215,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </button>
             <div className="h-6 md:h-8 w-[1px] bg-slate-200 mx-1 md:mx-2"></div>
             <div className="flex items-center mr-1 md:mr-2">
-              <span className="text-sm font-bold text-slate-600 ml-3 hidden sm:block">26 בינואר, 2026</span>
+              <div className="ml-3 hidden sm:flex flex-col text-right leading-tight select-none">
+                <span className="text-xs md:text-sm font-bold text-slate-700">
+                  {formattedDate}
+                </span>
+                <span className="text-[11px] font-semibold text-blue-600 flex items-center gap-1.5 justify-start">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span dir="ltr" className="font-mono tabular-nums">{formattedTime}</span>
+                </span>
+              </div>
               <div className="p-1.5 md:p-2 bg-slate-50 rounded-xl">
                 <ShieldCheck className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
               </div>
@@ -210,7 +238,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
 
           <footer className="mt-8 md:mt-12 py-6 md:py-8 border-t border-slate-200 text-center">
-            <p className="text-[10px] md:text-xs text-slate-400 mb-1">© 2026 ON-LAB-IL - הפורטל הלאומי לאיגוד המידע לעמידות לפונגצידים. כל הזכויות שמורות.</p>
+            <p className="text-[10px] md:text-xs text-slate-400 mb-1">© {currentDateTime.getFullYear()} ON-LAB-IL - הפורטל הלאומי לאיגוד המידע לעמידות לפונגצידים. כל הזכויות שמורות.</p>
             <p className="text-[10px] md:text-xs text-slate-400 font-medium">יוצר המערכת: אוהד נוריאל ohad.agri@gmail.com</p>
           </footer>
         </main>
